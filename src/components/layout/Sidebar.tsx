@@ -16,7 +16,7 @@ const mainMenu = [
         icon: LayoutDashboard,
     },
     {
-        name: 'Chấm công hôm nay',
+        name: 'Chấm công',
         path: '/attendance',
         icon: CalendarCheck,
     },

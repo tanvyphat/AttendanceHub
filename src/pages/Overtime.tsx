@@ -19,6 +19,7 @@ import {
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
+import {isValid24HourTime} from '../utils/time24'
 
 interface Employee {
     id: string
@@ -31,6 +32,8 @@ interface OvertimeRecord {
     id: string
     employee_id: string
     overtime_date: string
+    overtime_end_time: string
+    overtime_base_time: string
     overtime_minutes: number
     note: string | null
     employees: {
@@ -43,7 +46,7 @@ interface OvertimeForm {
     id?: string
     employeeId: string
     overtimeDate: string
-    duration: string
+    endTime: string
     note: string
 }
 
@@ -102,7 +105,46 @@ function formatDate(
     return `${day}/${month}/${year}`
 }
 
-function minutesToDuration(
+function timeToMinutes(
+    value: string,
+) {
+    const [hours, minutes] =
+        value
+            .slice(0, 5)
+            .split(':')
+            .map(Number)
+
+    return (
+        hours * 60 +
+        minutes
+    )
+}
+
+function calculateOvertimeMinutes(
+    endTime: string,
+    baseTime: string,
+) {
+    if (
+        !isValid24HourTime(
+            endTime,
+        ) ||
+        !isValid24HourTime(
+            baseTime,
+        )
+    ) {
+        return null
+    }
+
+    const result =
+        timeToMinutes(endTime) -
+        timeToMinutes(baseTime)
+
+    return result > 0
+        ? result
+        : null
+}
+
+function formatDuration(
     value: number,
 ) {
     const hours =
@@ -111,47 +153,18 @@ function minutesToDuration(
     const minutes =
         value % 60
 
-    return `${String(hours).padStart(
-        2,
-        '0',
-    )}:${String(minutes).padStart(
-        2,
-        '0',
-    )}`
-}
-
-function durationToMinutes(
-    value: string,
-) {
-    const match =
-        value
-            .trim()
-            .match(
-                /^(\d{1,2}):([0-5]\d)$/,
-            )
-
-    if (!match) {
-        return null
-    }
-
-    const hours =
-        Number(match[1])
-
-    const minutes =
-        Number(match[2])
-
-    const total =
-        hours * 60 +
-        minutes
-
     if (
-        total <= 0 ||
-        total > 720
+        hours > 0 &&
+        minutes > 0
     ) {
-        return null
+        return `${hours} giờ ${minutes} phút`
     }
 
-    return total
+    if (hours > 0) {
+        return `${hours} giờ`
+    }
+
+    return `${minutes} phút`
 }
 
 export default function Overtime() {
@@ -171,6 +184,11 @@ export default function Overtime() {
     ] = useState<
         OvertimeRecord[]
     >([])
+
+    const [
+        workEndTime,
+        setWorkEndTime,
+    ] = useState('17:00')
 
     const [search, setSearch] =
         useState('')
@@ -206,106 +224,142 @@ export default function Overtime() {
             null,
         )
 
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true)
-            setError(null)
+    const loadData = async () => {
+        setLoading(true)
+        setError(null)
 
-            try {
-                const {
-                    startDate,
-                    endDate,
-                } =
-                    getMonthRange(
-                        month,
-                    )
-
-                const [
-                    employeeResult,
-                    overtimeResult,
-                ] =
-                    await Promise.all([
-                        supabase
-                            .from(
-                                'employees',
-                            )
-                            .select(
-                                'id, employee_code, full_name, is_active',
-                            )
-                            .eq(
-                                'department',
-                                'warehouse_delivery',
-                            )
-                            .order(
-                                'employee_code',
-                            ),
-
-                        supabase
-                            .from(
-                                'overtime_records',
-                            )
-                            .select(
-                                `
-                                    id,
-                                    employee_id,
-                                    overtime_date,
-                                    overtime_minutes,
-                                    note,
-                                    employees (
-                                        employee_code,
-                                        full_name
-                                    )
-                                `,
-                            )
-                            .gte(
-                                'overtime_date',
-                                startDate,
-                            )
-                            .lte(
-                                'overtime_date',
-                                endDate,
-                            )
-                            .order(
-                                'overtime_date',
-                                {
-                                    ascending:
-                                        false,
-                                },
-                            ),
-                    ])
-
-                if (
-                    employeeResult.error
-                ) {
-                    throw employeeResult.error
-                }
-
-                if (
-                    overtimeResult.error
-                ) {
-                    throw overtimeResult.error
-                }
-
-                setEmployees(
-                    (employeeResult.data ??
-                        []) as Employee[],
+        try {
+            const {
+                startDate,
+                endDate,
+            } =
+                getMonthRange(
+                    month,
                 )
 
-                setRecords(
-                    (overtimeResult.data ??
-                        []) as unknown as OvertimeRecord[],
-                )
-            } catch (err) {
-                console.error(err)
+            const [
+                employeeResult,
+                overtimeResult,
+                settingsResult,
+            ] =
+                await Promise.all([
+                    supabase
+                        .from(
+                            'employees',
+                        )
+                        .select(
+                            'id, employee_code, full_name, is_active',
+                        )
+                        .eq(
+                            'department',
+                            'warehouse_delivery',
+                        )
+                        .order(
+                            'employee_code',
+                        ),
 
-                setError(
-                    'Không thể tải dữ liệu tăng ca.',
-                )
-            } finally {
-                setLoading(false)
+                    supabase
+                        .from(
+                            'overtime_records',
+                        )
+                        .select(
+                            `
+                                id,
+                                employee_id,
+                                overtime_date,
+                                overtime_end_time,
+                                overtime_base_time,
+                                overtime_minutes,
+                                note,
+                                employees (
+                                    employee_code,
+                                    full_name
+                                )
+                            `,
+                        )
+                        .gte(
+                            'overtime_date',
+                            startDate,
+                        )
+                        .lte(
+                            'overtime_date',
+                            endDate,
+                        )
+                        .order(
+                            'overtime_date',
+                            {
+                                ascending:
+                                    false,
+                            },
+                        ),
+
+                    supabase
+                        .from(
+                            'company_settings',
+                        )
+                        .select(
+                            'afternoon_end_time',
+                        )
+                        .eq(
+                            'id',
+                            1,
+                        )
+                        .single(),
+                ])
+
+            if (
+                employeeResult.error
+            ) {
+                throw employeeResult.error
             }
-        }
 
+            if (
+                overtimeResult.error
+            ) {
+                throw overtimeResult.error
+            }
+
+            if (
+                settingsResult.error
+            ) {
+                throw settingsResult.error
+            }
+
+            setEmployees(
+                (employeeResult.data ??
+                    []) as Employee[],
+            )
+
+            setRecords(
+                (overtimeResult.data ??
+                    []) as unknown as OvertimeRecord[],
+            )
+
+            if (
+                settingsResult.data
+                    ?.afternoon_end_time
+            ) {
+                setWorkEndTime(
+                    settingsResult.data
+                        .afternoon_end_time
+                        .slice(
+                            0,
+                            5,
+                        ),
+                )
+            }
+        } catch (err) {
+            console.error(err)
+
+            setError(
+                'Không thể tải dữ liệu tăng ca.',
+            )
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
         void loadData()
     }, [month])
 
@@ -377,6 +431,14 @@ export default function Overtime() {
         }
     }, [records])
 
+    const previewMinutes =
+        form
+            ? calculateOvertimeMinutes(
+                  form.endTime,
+                  workEndTime,
+              )
+            : null
+
     const openAdd = () => {
         const currentDate =
             getVietnamDate()
@@ -402,8 +464,8 @@ export default function Overtime() {
             overtimeDate:
                 dateForMonth,
 
-            duration:
-                '01:00',
+            endTime:
+                '',
 
             note:
                 'Tăng ca',
@@ -424,9 +486,10 @@ export default function Overtime() {
             overtimeDate:
                 record.overtime_date,
 
-            duration:
-                minutesToDuration(
-                    record.overtime_minutes,
+            endTime:
+                record.overtime_end_time.slice(
+                    0,
+                    5,
                 ),
 
             note:
@@ -443,11 +506,6 @@ export default function Overtime() {
 
         if (!form) return
 
-        const minutes =
-            durationToMinutes(
-                form.duration,
-            )
-
         if (!form.employeeId) {
             setError(
                 'Vui lòng chọn nhân viên.',
@@ -462,9 +520,29 @@ export default function Overtime() {
             return
         }
 
-        if (minutes === null) {
+        if (
+            !isValid24HourTime(
+                form.endTime,
+            )
+        ) {
             setError(
-                'Thời lượng tăng ca phải theo HH:mm và lớn hơn 00:00, tối đa 12:00.',
+                'Giờ về phải theo định dạng 24H HH:mm, ví dụ 19:27.',
+            )
+            return
+        }
+
+        const overtimeMinutes =
+            calculateOvertimeMinutes(
+                form.endTime,
+                workEndTime,
+            )
+
+        if (
+            overtimeMinutes ===
+            null
+        ) {
+            setError(
+                `Giờ về phải sau giờ kết thúc ca chiều (${workEndTime}).`,
             )
             return
         }
@@ -480,8 +558,8 @@ export default function Overtime() {
                 overtime_date:
                     form.overtimeDate,
 
-                overtime_minutes:
-                    minutes,
+                overtime_end_time:
+                    form.endTime,
 
                 note:
                     form.note.trim() ||
@@ -552,57 +630,7 @@ export default function Overtime() {
 
             setForm(null)
 
-            const {
-                startDate,
-                endDate,
-            } =
-                getMonthRange(month)
-
-            const {
-                data,
-                error:
-                    reloadError,
-            } = await supabase
-                .from(
-                    'overtime_records',
-                )
-                .select(
-                    `
-                        id,
-                        employee_id,
-                        overtime_date,
-                        overtime_minutes,
-                        note,
-                        employees (
-                            employee_code,
-                            full_name
-                        )
-                    `,
-                )
-                .gte(
-                    'overtime_date',
-                    startDate,
-                )
-                .lte(
-                    'overtime_date',
-                    endDate,
-                )
-                .order(
-                    'overtime_date',
-                    {
-                        ascending:
-                            false,
-                    },
-                )
-
-            if (reloadError) {
-                throw reloadError
-            }
-
-            setRecords(
-                (data ??
-                    []) as unknown as OvertimeRecord[],
-            )
+            await loadData()
         } catch (err) {
             console.error(err)
 
@@ -691,7 +719,7 @@ export default function Overtime() {
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500">
-                        Nhập bổ sung tăng ca cuối tháng theo bảng giấy của quản lý bộ phận.
+                        Nhập giờ về từ bảng giấy cuối tháng, hệ thống tự tính thời gian tăng ca.
                     </p>
                 </div>
 
@@ -705,14 +733,13 @@ export default function Overtime() {
                     className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <Plus size={18}/>
-
                     Thêm tăng ca
                 </button>
             </div>
 
             <section className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
                 <p className="text-sm leading-6 text-blue-800">
-                    Chỉ nhân viên <strong>Kho & Giao Hàng</strong> mới có tăng ca. Dữ liệu này được nhập thủ công và không tự suy ra từ giờ chấm công.
+                    Giờ kết thúc ca chiều hiện tại là <strong>{workEndTime}</strong>. Ví dụ nhập giờ về <strong>19:27</strong> thì hệ thống tự tính <strong>2 giờ 27 phút</strong> tăng ca.
                 </p>
             </section>
 
@@ -745,11 +772,11 @@ export default function Overtime() {
                     <Timer className="mb-4 text-amber-600"/>
 
                     <p className="text-sm text-slate-500">
-                        Tổng thời lượng
+                        Tổng tăng ca
                     </p>
 
-                    <p className="mt-1 text-3xl font-bold text-slate-950">
-                        {minutesToDuration(
+                    <p className="mt-1 text-2xl font-bold text-slate-950">
+                        {formatDuration(
                             summary.totalMinutes,
                         )}
                     </p>
@@ -814,12 +841,12 @@ export default function Overtime() {
                         </p>
 
                         <p className="mt-2 text-sm text-slate-400">
-                            Bấm Thêm tăng ca để nhập lại dữ liệu từ bảng giấy.
+                            Bấm Thêm tăng ca để nhập giờ về từ bảng giấy.
                         </p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[950px]">
+                        <table className="w-full min-w-[1100px]">
                             <thead className="bg-slate-50">
                                 <tr className="border-b border-slate-200">
                                     <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
@@ -831,7 +858,15 @@ export default function Overtime() {
                                     </th>
 
                                     <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                        Thời lượng
+                                        Kết thúc ca
+                                    </th>
+
+                                    <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
+                                        Giờ về
+                                    </th>
+
+                                    <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
+                                        Tăng ca
                                     </th>
 
                                     <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
@@ -875,9 +910,23 @@ export default function Overtime() {
                                                 </p>
                                             </td>
 
+                                            <td className="px-5 py-4 text-center font-semibold text-slate-500">
+                                                {record.overtime_base_time.slice(
+                                                    0,
+                                                    5,
+                                                )}
+                                            </td>
+
+                                            <td className="px-5 py-4 text-center font-bold text-slate-900">
+                                                {record.overtime_end_time.slice(
+                                                    0,
+                                                    5,
+                                                )}
+                                            </td>
+
                                             <td className="px-5 py-4 text-center">
-                                                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-                                                    {minutesToDuration(
+                                                <span className="whitespace-nowrap rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                                                    {formatDuration(
                                                         record.overtime_minutes,
                                                     )}
                                                 </span>
@@ -1053,7 +1102,7 @@ export default function Overtime() {
 
                                     <div>
                                         <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                            Thời lượng (HH:mm)
+                                            Giờ về (24H)
                                         </label>
 
                                         <input
@@ -1061,18 +1110,63 @@ export default function Overtime() {
                                             inputMode="numeric"
                                             maxLength={5}
                                             value={
-                                                form.duration
+                                                form.endTime
                                             }
                                             onChange={(event) =>
                                                 setForm({
                                                     ...form,
-                                                    duration:
+                                                    endTime:
                                                         event.target.value,
                                                 })
                                             }
-                                            placeholder="02:30"
+                                            placeholder="19:27"
+                                            pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                             className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-600">
+                                                Kết thúc ca
+                                            </p>
+
+                                            <p className="mt-1 text-xl font-bold text-amber-950">
+                                                {workEndTime}
+                                            </p>
+                                        </div>
+
+                                        <span className="font-bold text-amber-400">
+                                            →
+                                        </span>
+
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-600">
+                                                Giờ về
+                                            </p>
+
+                                            <p className="mt-1 text-xl font-bold text-amber-950">
+                                                {form.endTime ||
+                                                    '--:--'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 border-t border-amber-200 pt-4 text-center">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+                                            Thời gian tăng ca
+                                        </p>
+
+                                        <p className="mt-1 text-2xl font-bold text-amber-950">
+                                            {previewMinutes ===
+                                            null
+                                                ? '—'
+                                                : formatDuration(
+                                                      previewMinutes,
+                                                  )}
+                                        </p>
                                     </div>
                                 </div>
 

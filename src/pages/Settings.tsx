@@ -10,6 +10,7 @@ import {
     useState,
 } from 'react'
 
+import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
 
@@ -389,19 +390,15 @@ export default function Settings() {
                                         Giờ vào làm
                                     </label>
 
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                    <TimeInput
                                         value={settings.work_start_time}
-                                        onChange={(event) =>
+                                        onChange={(value) =>
                                             updateSetting(
                                                 'work_start_time',
-                                                event.target.value,
+                                                value,
                                             )
                                         }
+                                        aria-label="work_start_time"
                                         className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                     />
                                 </div>
@@ -411,19 +408,15 @@ export default function Settings() {
                                         Kết thúc ca sáng
                                     </label>
 
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                    <TimeInput
                                         value={settings.morning_end_time}
-                                        onChange={(event) =>
+                                        onChange={(value) =>
                                             updateSetting(
                                                 'morning_end_time',
-                                                event.target.value,
+                                                value,
                                             )
                                         }
+                                        aria-label="morning_end_time"
                                         className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                     />
                                 </div>
@@ -435,21 +428,17 @@ export default function Settings() {
                                     Bắt đầu tính đi trễ sau
                                 </label>
 
-                                <input
-                                    type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
-                                    value={settings.late_after_time}
-                                    onChange={(event) =>
-                                        updateSetting(
-                                            'late_after_time',
-                                            event.target.value,
-                                        )
-                                    }
-                                    className="h-11 w-full cursor-pointer rounded-xl border border-amber-200 bg-white px-3 text-sm font-bold text-amber-900 outline-none transition focus:ring-4 focus:ring-amber-100"
-                                />
+                                <TimeInput
+                                        value={settings.late_after_time}
+                                        onChange={(value) =>
+                                            updateSetting(
+                                                'late_after_time',
+                                                value,
+                                            )
+                                        }
+                                        aria-label="late_after_time"
+                                        className="h-11 w-full cursor-pointer rounded-xl border border-amber-200 bg-white px-3 text-sm font-bold text-amber-900 outline-none transition focus:ring-4 focus:ring-amber-100"
+                                    />
 
                                 <p className="mt-2 text-xs leading-5 text-amber-700">
                                     Đúng {settings.late_after_time} vẫn được tính đúng giờ. Từ phút tiếp theo mới tính là đi trễ.
@@ -474,19 +463,15 @@ export default function Settings() {
                                         Giờ vào làm
                                     </label>
 
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                    <TimeInput
                                         value={settings.afternoon_start_time}
-                                        onChange={(event) =>
+                                        onChange={(value) =>
                                             updateSetting(
                                                 'afternoon_start_time',
-                                                event.target.value,
+                                                value,
                                             )
                                         }
+                                        aria-label="afternoon_start_time"
                                         className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                     />
                                 </div>
@@ -496,19 +481,15 @@ export default function Settings() {
                                         Kết thúc ca chiều
                                     </label>
 
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                    <TimeInput
                                         value={settings.afternoon_end_time}
-                                        onChange={(event) =>
+                                        onChange={(value) =>
                                             updateSetting(
                                                 'afternoon_end_time',
-                                                event.target.value,
+                                                value,
                                             )
                                         }
+                                        aria-label="afternoon_end_time"
                                         className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                     />
                                 </div>

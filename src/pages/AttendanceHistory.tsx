@@ -17,6 +17,7 @@ import {
 } from 'react'
 
 import {supabase} from '../lib/supabase'
+import {isValid24HourTime} from '../utils/time24'
 
 type AttendanceStatus =
     | 'pending'
@@ -496,6 +497,20 @@ export default function AttendanceHistory() {
         ) {
             setError(
                 'Nhân viên có mặt buổi sáng nhưng chưa nhập giờ vào.',
+            )
+
+            return
+        }
+
+        if (
+            editForm.morningStatus ===
+            'present' &&
+            !isValid24HourTime(
+                editForm.checkIn,
+            )
+        ) {
+            setError(
+                'Giờ vào phải theo định dạng 24H HH:mm, ví dụ 07:30.',
             )
 
             return
@@ -1006,11 +1021,15 @@ export default function AttendanceHistory() {
                         <div className="space-y-5 p-6">
                             <div>
                                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Giờ vào sáng
+                                    Giờ vào sáng (24H)
                                 </label>
 
                                 <input
-                                    type="time"
+                                    type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                     value={
                                         editForm.checkIn
                                     }

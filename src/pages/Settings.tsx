@@ -11,6 +11,7 @@ import {
 } from 'react'
 
 import {supabase} from '../lib/supabase'
+import {isValid24HourTime} from '../utils/time24'
 
 interface CompanySettings {
     work_start_time: string
@@ -149,6 +150,22 @@ export default function Settings() {
             !afternoon_end_time
         ) {
             return 'Vui lòng nhập đầy đủ tất cả mốc giờ.'
+        }
+
+        const allTimes = [
+            work_start_time,
+            late_after_time,
+            morning_end_time,
+            afternoon_start_time,
+            afternoon_end_time,
+        ]
+
+        if (
+            !allTimes.every(
+                isValid24HourTime,
+            )
+        ) {
+            return 'Giờ phải theo định dạng 24H HH:mm, ví dụ 07:30 hoặc 17:00.'
         }
 
         if (
@@ -317,7 +334,7 @@ export default function Settings() {
                 </h1>
 
                 <p className="mt-2 text-sm text-slate-500">
-                    Quản lý giờ làm việc và mốc xác định đi trễ.
+                    Quản lý giờ làm việc và mốc xác định đi trễ theo định dạng 24H (HH:mm).
                 </p>
             </div>
 
@@ -373,7 +390,11 @@ export default function Settings() {
                                     </label>
 
                                     <input
-                                        type="time"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                         value={settings.work_start_time}
                                         onChange={(event) =>
                                             updateSetting(
@@ -391,7 +412,11 @@ export default function Settings() {
                                     </label>
 
                                     <input
-                                        type="time"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                         value={settings.morning_end_time}
                                         onChange={(event) =>
                                             updateSetting(
@@ -411,7 +436,11 @@ export default function Settings() {
                                 </label>
 
                                 <input
-                                    type="time"
+                                    type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                     value={settings.late_after_time}
                                     onChange={(event) =>
                                         updateSetting(
@@ -446,7 +475,11 @@ export default function Settings() {
                                     </label>
 
                                     <input
-                                        type="time"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                         value={settings.afternoon_start_time}
                                         onChange={(event) =>
                                             updateSetting(
@@ -464,7 +497,11 @@ export default function Settings() {
                                     </label>
 
                                     <input
-                                        type="time"
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                         value={settings.afternoon_end_time}
                                         onChange={(event) =>
                                             updateSetting(

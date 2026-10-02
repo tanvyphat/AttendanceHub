@@ -15,6 +15,7 @@ import {
     useState,
 } from 'react'
 
+import TimeInput from '../components/ui/TimeInput'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
@@ -1252,24 +1253,20 @@ export default function AttendanceHistory() {
                                                         </td>
 
                                                         <td className="px-5 py-4">
-                                                            <input
-                                                                type="text"
-                                                                inputMode="numeric"
-                                                                maxLength={5}
-                                                                placeholder="HH:mm"
-                                                                pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                                            <TimeInput
                                                                 value={
                                                                     row.checkIn
                                                                 }
-                                                                onChange={(event) =>
+                                                                onChange={(value) =>
                                                                     updateEditRow(
                                                                         row.employee.id,
                                                                         {
                                                                             checkIn:
-                                                                                event.target.value,
+                                                                                value,
                                                                         },
                                                                     )
                                                                 }
+                                                                aria-label={`Giờ vào của ${row.employee.full_name}`}
                                                                 className="h-10 w-28 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                                             />
                                                         </td>

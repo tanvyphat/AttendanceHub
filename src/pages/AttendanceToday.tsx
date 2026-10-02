@@ -615,7 +615,7 @@ export default function AttendanceToday() {
                     </p>
 
                     <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                        Chấm công hôm nay
+                        Chấm công
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500">
@@ -749,10 +749,10 @@ export default function AttendanceToday() {
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="min-w-[1250px] w-full">
+                    <table className="min-w-[1450px] w-full">
                         <thead className="bg-slate-50">
                         <tr className="border-b border-slate-200">
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                            <th className="w-[280px] min-w-[280px] px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Nhân viên
                             </th>
 
@@ -808,12 +808,15 @@ export default function AttendanceToday() {
                                     key={employee.id}
                                     className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
                                 >
-                                    <td className="px-5 py-4">
-                                        <p className="font-semibold text-slate-900">
+                                    <td className="w-[280px] min-w-[280px] px-5 py-4 align-middle">
+                                        <p
+                                            className="whitespace-nowrap font-semibold text-slate-900"
+                                            title={employee.full_name}
+                                        >
                                             {employee.full_name}
                                         </p>
 
-                                        <p className="mt-1 text-xs text-slate-400">
+                                        <p className="mt-1 whitespace-nowrap text-xs text-slate-400">
                                             {employee.employee_code}
                                         </p>
                                     </td>

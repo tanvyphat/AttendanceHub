@@ -14,6 +14,7 @@ import AttendanceHistory from './pages/AttendanceHistory'
 import Reports from './pages/Reports'
 import Employees from './pages/Employees'
 import LateArrivals from './pages/LateArrivals'
+import Overtime from './pages/Overtime'
 import Settings from './pages/Settings'
 
 function App() {
@@ -49,6 +50,11 @@ function App() {
                 <Route
                     path="late"
                     element={<LateArrivals/>}
+                />
+
+                <Route
+                    path="overtime"
+                    element={<Overtime/>}
                 />
 
                 <Route

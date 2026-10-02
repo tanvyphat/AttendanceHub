@@ -211,6 +211,9 @@ export default function AttendanceHistory() {
     const [success, setSuccess] =
         useState<string | null>(null)
 
+    const [lateAfterTime, setLateAfterTime] =
+        useState('07:35')
+
     const [editForm, setEditForm] =
         useState<EditForm | null>(null)
 
@@ -220,6 +223,32 @@ export default function AttendanceHistory() {
     useEffect(() => {
         setSpecificDate('')
     }, [month])
+
+    useEffect(() => {
+        const loadSettings = async () => {
+            const {
+                data,
+                error: settingsError,
+            } = await supabase
+                .from('company_settings')
+                .select('late_after_time')
+                .eq('id', 1)
+                .maybeSingle()
+
+            if (settingsError) {
+                console.error(settingsError)
+                return
+            }
+
+            if (data?.late_after_time) {
+                setLateAfterTime(
+                    data.late_after_time.slice(0, 5),
+                )
+            }
+        }
+
+        void loadSettings()
+    }, [])
 
     useEffect(() => {
         const loadHistory = async () => {
@@ -1004,12 +1033,12 @@ export default function AttendanceHistory() {
 
                                 {editForm.checkIn &&
                                     editForm.checkIn >
-                                    '07:35' && (
+                                    lateAfterTime && (
                                         <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-600">
                                             <Clock3
                                                 size={14}
                                             />
-                                            Sau 07:35 — Đi
+                                            Sau {lateAfterTime} — Đi
                                             trễ
                                         </p>
                                     )}

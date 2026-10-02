@@ -111,6 +111,67 @@ export default function AttendanceToday() {
 
     const today = getVietnamDate()
 
+    const [workSettings, setWorkSettings] =
+        useState({
+            work_start_time: '07:30',
+            late_after_time: '07:35',
+            morning_end_time: '12:00',
+            afternoon_start_time: '13:30',
+            afternoon_end_time: '17:00',
+        })
+
+    useEffect(() => {
+        const loadWorkSettings = async () => {
+            const {
+                data,
+                error: settingsError,
+            } = await supabase
+                .from('company_settings')
+                .select(
+                    `
+                        work_start_time,
+                        late_after_time,
+                        morning_end_time,
+                        afternoon_start_time,
+                        afternoon_end_time
+                    `,
+                )
+                .eq('id', 1)
+                .maybeSingle()
+
+            if (settingsError) {
+                console.error(settingsError)
+                return
+            }
+
+            if (!data) return
+
+            setWorkSettings({
+                work_start_time:
+                    data.work_start_time?.slice(0, 5) ??
+                    '07:30',
+
+                late_after_time:
+                    data.late_after_time?.slice(0, 5) ??
+                    '07:35',
+
+                morning_end_time:
+                    data.morning_end_time?.slice(0, 5) ??
+                    '12:00',
+
+                afternoon_start_time:
+                    data.afternoon_start_time?.slice(0, 5) ??
+                    '13:30',
+
+                afternoon_end_time:
+                    data.afternoon_end_time?.slice(0, 5) ??
+                    '17:00',
+            })
+        }
+
+        void loadWorkSettings()
+    }, [])
+
     useEffect(() => {
         const loadAttendance = async () => {
             setLoading(true)
@@ -494,7 +555,7 @@ export default function AttendanceToday() {
 
             const latePreview =
                 row.check_in !== '' &&
-                row.check_in > '07:35'
+                row.check_in > workSettings.late_after_time
 
             if (row.is_late || latePreview) {
                 late += 1
@@ -642,21 +703,21 @@ export default function AttendanceToday() {
           <span>
             🌅 Ca sáng:
             <strong className="ml-2">
-              07:30 - 12:00
+              {workSettings.work_start_time} - {workSettings.morning_end_time}
             </strong>
           </span>
 
                     <span>
             ⏰ Đi trễ:
             <strong className="ml-2">
-              Sau 07:35
+              Sau {workSettings.late_after_time}
             </strong>
           </span>
 
                     <span>
             🌇 Ca chiều:
             <strong className="ml-2">
-              13:30 - 17:00
+              {workSettings.afternoon_start_time} - {workSettings.afternoon_end_time}
             </strong>
           </span>
                 </div>
@@ -727,7 +788,7 @@ export default function AttendanceToday() {
                                 row.is_late ||
                                 (row.check_in !== '' &&
                                     row.check_in >
-                                    '07:35')
+                                    workSettings.late_after_time)
 
                             const saving =
                                 savingIds.has(

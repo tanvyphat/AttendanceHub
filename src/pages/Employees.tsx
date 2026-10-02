@@ -18,6 +18,7 @@ import {
     useState,
 } from 'react'
 
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import {supabase} from '../lib/supabase'
 
 interface Employee {
@@ -82,6 +83,11 @@ export default function Employees() {
 
     const [changingStatusId, setChangingStatusId] =
         useState<string | null>(null)
+
+    const [
+        statusConfirmEmployee,
+        setStatusConfirmEmployee,
+    ] = useState<Employee | null>(null)
 
     const [search, setSearch] =
         useState('')
@@ -404,24 +410,11 @@ export default function Employees() {
         }
     }
 
-    const changeEmployeeStatus =
+    const applyEmployeeStatus =
         async (
             employee: Employee,
+            newStatus: boolean,
         ) => {
-            const newStatus =
-                !employee.is_active
-
-            if (!newStatus) {
-                const confirmed =
-                    window.confirm(
-                        `Ngưng hoạt động "${employee.full_name}"?\n\nNhân viên sẽ không còn xuất hiện trong trang Chấm công hôm nay, nhưng toàn bộ lịch sử vẫn được giữ lại.`,
-                    )
-
-                if (!confirmed) {
-                    return
-                }
-            }
-
             setChangingStatusId(
                 employee.id,
             )
@@ -486,6 +479,41 @@ export default function Employees() {
                     null,
                 )
             }
+        }
+
+    const changeEmployeeStatus = (
+        employee: Employee,
+    ) => {
+        if (employee.is_active) {
+            setStatusConfirmEmployee(
+                employee,
+            )
+            return
+        }
+
+        void applyEmployeeStatus(
+            employee,
+            true,
+        )
+    }
+
+    const confirmDeactivateEmployee =
+        async () => {
+            if (!statusConfirmEmployee) {
+                return
+            }
+
+            const employee =
+                statusConfirmEmployee
+
+            await applyEmployeeStatus(
+                employee,
+                false,
+            )
+
+            setStatusConfirmEmployee(
+                null,
+            )
         }
 
     return (
@@ -793,6 +821,37 @@ export default function Employees() {
             </section>
 
             {/* ADD / EDIT MODAL */}
+
+            <ConfirmDialog
+                open={Boolean(
+                    statusConfirmEmployee,
+                )}
+                title="Ngưng hoạt động nhân viên?"
+                description={
+                    statusConfirmEmployee
+                        ? `${statusConfirmEmployee.full_name} sẽ không còn xuất hiện trong trang Chấm công hôm nay. Toàn bộ lịch sử chấm công vẫn được giữ nguyên và bạn có thể kích hoạt lại nhân viên này bất cứ lúc nào.`
+                        : ''
+                }
+                confirmLabel="Ngưng hoạt động"
+                cancelLabel="Giữ hoạt động"
+                danger
+                loading={
+                    statusConfirmEmployee
+                        ? changingStatusId ===
+                          statusConfirmEmployee.id
+                        : false
+                }
+                onCancel={() => {
+                    if (!changingStatusId) {
+                        setStatusConfirmEmployee(
+                            null,
+                        )
+                    }
+                }}
+                onConfirm={() =>
+                    void confirmDeactivateEmployee()
+                }
+            />
 
             {form && (
                 <div

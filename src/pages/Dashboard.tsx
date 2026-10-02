@@ -205,13 +205,13 @@ export default function Dashboard() {
                     supabase
                         .from('attendance')
                         .select(
-                            [
-                                'employee_id',
-                                'work_date',
-                                'morning_status',
-                                'afternoon_status',
-                                'is_late',
-                            ].join(','),
+                            `
+                                employee_id,
+                                work_date,
+                                morning_status,
+                                afternoon_status,
+                                is_late
+                            `,
                         )
                         .gte(
                             'work_date',
@@ -235,9 +235,27 @@ export default function Dashboard() {
                     (employeesResult.data ??
                         []) as Employee[]
 
-                const attendance =
-                    (attendanceResult.data ??
-                        []) as AttendanceRecord[]
+                const attendance: AttendanceRecord[] =
+                    (
+                        attendanceResult.data ?? []
+                    ).map((record) => ({
+                        employee_id:
+                            String(
+                                record.employee_id,
+                            ),
+                        work_date:
+                            String(
+                                record.work_date,
+                            ),
+                        morning_status:
+                            record.morning_status as AttendanceStatus,
+                        afternoon_status:
+                            record.afternoon_status as AttendanceStatus,
+                        is_late:
+                            Boolean(
+                                record.is_late,
+                            ),
+                    }))
 
                 const employeeNames =
                     new Map(

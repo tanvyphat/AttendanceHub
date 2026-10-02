@@ -12,6 +12,7 @@ import {
     useMemo,
     useState,
 } from 'react'
+import {useSearchParams} from 'react-router-dom'
 
 import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
@@ -92,6 +93,12 @@ const statusOptions: {
 ]
 
 export default function AttendanceToday() {
+    const [searchParams, setSearchParams] =
+        useSearchParams()
+
+    const dateFromUrl =
+        searchParams.get('date')
+
     const [employees, setEmployees] = useState<
         Employee[]
     >([])
@@ -117,8 +124,13 @@ export default function AttendanceToday() {
     const [
         selectedDate,
         setSelectedDate,
-    ] = useState(
-        getVietnamDate(),
+    ] = useState(() =>
+        dateFromUrl &&
+        /^\\d{4}-\\d{2}-\\d{2}$/.test(
+            dateFromUrl,
+        )
+            ? dateFromUrl
+            : getVietnamDate(),
     )
 
     const [workSettings, setWorkSettings] =
@@ -663,11 +675,23 @@ export default function AttendanceToday() {
                                 value={
                                     selectedDate
                                 }
-                                onChange={(event) =>
+                                onChange={(event) => {
+                                    const nextDate =
+                                        event.target.value
+
                                     setSelectedDate(
-                                        event.target.value,
+                                        nextDate,
                                     )
-                                }
+
+                                    setSearchParams(
+                                        {
+                                            date: nextDate,
+                                        },
+                                        {
+                                            replace: true,
+                                        },
+                                    )
+                                }}
                                 disabled={
                                     savingAll ||
                                     savingIds.size >

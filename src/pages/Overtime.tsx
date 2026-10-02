@@ -17,6 +17,7 @@ import {
 } from 'react'
 
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import TimeInput from '../components/ui/TimeInput'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
@@ -1105,22 +1106,19 @@ export default function Overtime() {
                                             Giờ về (24H)
                                         </label>
 
-                                        <input
-                                            type="text"
-                                            inputMode="numeric"
-                                            maxLength={5}
+                                        <TimeInput
                                             value={
                                                 form.endTime
                                             }
-                                            onChange={(event) =>
+                                            onChange={(value) =>
                                                 setForm({
                                                     ...form,
                                                     endTime:
-                                                        event.target.value,
+                                                        value,
                                                 })
                                             }
                                             placeholder="19:27"
-                                            pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
+                                            aria-label="Giờ về"
                                             className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
                                     </div>

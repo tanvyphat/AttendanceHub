@@ -13,7 +13,6 @@ import AttendanceToday from './pages/AttendanceToday'
 import AttendanceHistory from './pages/AttendanceHistory'
 import Reports from './pages/Reports'
 import Employees from './pages/Employees'
-import LeaveRequests from './pages/LeaveRequests'
 import LateArrivals from './pages/LateArrivals'
 import Settings from './pages/Settings'
 
@@ -45,11 +44,6 @@ function App() {
                 <Route
                     path="history"
                     element={<AttendanceHistory/>}
-                />
-
-                <Route
-                    path="leave"
-                    element={<LeaveRequests/>}
                 />
 
                 <Route

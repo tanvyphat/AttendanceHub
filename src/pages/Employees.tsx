@@ -22,10 +22,15 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
 
+type Department =
+    | 'office'
+    | 'warehouse_delivery'
+
 interface Employee {
     id: string
     employee_code: string
     full_name: string
+    department: Department
     is_active: boolean
     created_at: string
     updated_at: string
@@ -40,6 +45,7 @@ interface EmployeeForm {
     id?: string
     employee_code: string
     full_name: string
+    department: Department
 }
 
 function getNextEmployeeCode(
@@ -123,6 +129,7 @@ export default function Employees() {
               id,
               employee_code,
               full_name,
+              department,
               is_active,
               created_at,
               updated_at
@@ -224,6 +231,7 @@ export default function Employees() {
                     employees,
                 ),
             full_name: '',
+            department: 'office',
         })
     }
 
@@ -239,6 +247,8 @@ export default function Employees() {
             employee.employee_code,
             full_name:
             employee.full_name,
+            department:
+            employee.department,
         })
     }
 
@@ -294,6 +304,9 @@ export default function Employees() {
 
                         full_name:
                         fullName,
+
+                        department:
+                        form.department,
                     })
                     .eq('id', form.id)
                     .select(
@@ -301,6 +314,7 @@ export default function Employees() {
               id,
               employee_code,
               full_name,
+              department,
               is_active,
               created_at,
               updated_at
@@ -353,6 +367,9 @@ export default function Employees() {
                         full_name:
                         fullName,
 
+                        department:
+                        form.department,
+
                         is_active: true,
                     })
                     .select(
@@ -360,6 +377,7 @@ export default function Employees() {
               id,
               employee_code,
               full_name,
+              department,
               is_active,
               created_at,
               updated_at
@@ -442,6 +460,7 @@ export default function Employees() {
               id,
               employee_code,
               full_name,
+              department,
               is_active,
               created_at,
               updated_at
@@ -680,7 +699,7 @@ export default function Employees() {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[850px]">
+                        <table className="w-full min-w-[1050px]">
                             <thead className="bg-slate-50">
                             <tr className="border-b border-slate-200">
                                 <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -689,6 +708,10 @@ export default function Employees() {
 
                                 <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Họ và tên
+                                </th>
+
+                                <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Bộ phận
                                 </th>
 
                                 <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -729,6 +752,19 @@ export default function Employees() {
                                                         employee.full_name
                                                     }
                                                 </p>
+                                            </td>
+
+                                            <td className="px-5 py-4">
+                                                {employee.department ===
+                                                'warehouse_delivery' ? (
+                                                    <span className="inline-flex whitespace-nowrap rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                                                        Kho & Giao Hàng
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+                                                        Văn Phòng
+                                                    </span>
+                                                )}
                                             </td>
 
                                             <td className="px-5 py-4">
@@ -953,6 +989,39 @@ export default function Employees() {
                                         }
                                         className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                        Bộ phận
+                                    </label>
+
+                                    <select
+                                        value={
+                                            form.department
+                                        }
+                                        onChange={(event) =>
+                                            setForm({
+                                                ...form,
+                                                department:
+                                                    event.target
+                                                        .value as Department,
+                                            })
+                                        }
+                                        className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    >
+                                        <option value="office">
+                                            Văn Phòng
+                                        </option>
+
+                                        <option value="warehouse_delivery">
+                                            Kho & Giao Hàng
+                                        </option>
+                                    </select>
+
+                                    <p className="mt-2 text-xs leading-5 text-slate-400">
+                                        Chỉ bộ phận Kho & Giao Hàng mới được nhập dữ liệu tăng ca.
+                                    </p>
                                 </div>
 
                                 {!form.id && (

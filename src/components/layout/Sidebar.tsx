@@ -46,11 +46,9 @@ const mainMenu = [
         path: '/employees',
         icon: Users,
     },
-]
-
-const upcomingMenu = [
     {
         name: 'Cài đặt',
+        path: '/settings',
         icon: Settings,
     },
 ]
@@ -109,32 +107,6 @@ export default function Sidebar() {
                     })}
                 </div>
 
-                <p className="mb-3 mt-8 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Sắp phát triển
-                </p>
-
-                <div className="space-y-1">
-                    {upcomingMenu.map((item) => {
-                        const Icon = item.icon
-
-                        return (
-                            <div
-                                key={item.name}
-                                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-400"
-                            >
-                                <Icon size={19}/>
-
-                                <span className="flex-1">
-                                    {item.name}
-                                </span>
-
-                                <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-400">
-                                    Soon
-                                </span>
-                            </div>
-                        )
-                    })}
-                </div>
             </nav>
 
             <div className="border-t border-slate-100 px-5 py-5">

@@ -5,7 +5,6 @@ import {
     History,
     LayoutDashboard,
     Settings,
-    Umbrella,
     Users,
 } from 'lucide-react'
 import {NavLink} from 'react-router-dom'
@@ -25,11 +24,6 @@ const mainMenu = [
         name: 'Lịch sử chấm công',
         path: '/history',
         icon: History,
-    },
-    {
-        name: 'Nghỉ phép',
-        path: '/leave',
-        icon: Umbrella,
     },
     {
         name: 'Đi trễ',
@@ -106,7 +100,6 @@ export default function Sidebar() {
                         )
                     })}
                 </div>
-
             </nav>
 
             <div className="border-t border-slate-100 px-5 py-5">

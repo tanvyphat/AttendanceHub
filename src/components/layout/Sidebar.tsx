@@ -32,6 +32,11 @@ const mainMenu = [
         icon: Umbrella,
     },
     {
+        name: 'Đi trễ',
+        path: '/late',
+        icon: Clock3,
+    },
+    {
         name: 'Báo cáo',
         path: '/reports',
         icon: FileSpreadsheet,
@@ -44,10 +49,6 @@ const mainMenu = [
 ]
 
 const upcomingMenu = [
-    {
-        name: 'Đi trễ',
-        icon: Clock3,
-    },
     {
         name: 'Cài đặt',
         icon: Settings,
@@ -124,13 +125,12 @@ export default function Sidebar() {
                                 <Icon size={19}/>
 
                                 <span className="flex-1">
-                  {item.name}
-                </span>
+                                    {item.name}
+                                </span>
 
-                                <span
-                                    className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-400">
-                  Soon
-                </span>
+                                <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-400">
+                                    Soon
+                                </span>
                             </div>
                         )
                     })}
@@ -140,15 +140,15 @@ export default function Sidebar() {
             <div className="border-t border-slate-100 px-5 py-5">
                 <div className="rounded-xl bg-emerald-50 px-4 py-3">
                     <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"/>
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"/>
 
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"/>
-            </span>
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"/>
+                        </span>
 
                         <span className="text-xs font-semibold text-emerald-700">
-              System Online
-            </span>
+                            System Online
+                        </span>
                     </div>
                 </div>
             </div>

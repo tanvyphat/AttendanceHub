@@ -1,4 +1,5 @@
 import {
+    CalendarDays,
     Check,
     Clock3,
     Loader2,
@@ -55,14 +56,16 @@ function getVietnamDate() {
     })
 }
 
-function getVietnamDisplayDate() {
-    return new Intl.DateTimeFormat('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        weekday: 'long',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(new Date())
+function formatWorkDate(
+    value: string,
+) {
+    const [
+        year,
+        month,
+        day,
+    ] = value.split('-')
+
+    return `${day}/${month}/${year}`
 }
 
 const statusOptions: {
@@ -110,7 +113,12 @@ export default function AttendanceToday() {
     const [success, setSuccess] =
         useState<string | null>(null)
 
-    const today = getVietnamDate()
+    const [
+        selectedDate,
+        setSelectedDate,
+    ] = useState(
+        getVietnamDate(),
+    )
 
     const [workSettings, setWorkSettings] =
         useState({
@@ -223,7 +231,10 @@ export default function AttendanceToday() {
                 note
               `,
                         )
-                        .eq('work_date', today)
+                        .eq(
+                            'work_date',
+                            selectedDate,
+                        )
 
                 if (attendanceError) {
                     throw attendanceError
@@ -265,7 +276,7 @@ export default function AttendanceToday() {
         }
 
         void loadAttendance()
-    }, [today])
+    }, [selectedDate])
 
     const updateRow = (
         employeeId: string,
@@ -364,7 +375,7 @@ export default function AttendanceToday() {
                 .upsert(
                     {
                         employee_id: employee.id,
-                        work_date: today,
+                        work_date: selectedDate,
                         check_in: checkIn,
                         morning_status:
                         row.morning_status,
@@ -451,7 +462,7 @@ export default function AttendanceToday() {
 
                     return {
                         employee_id: employee.id,
-                        work_date: today,
+                        work_date: selectedDate,
 
                         check_in:
                             row.morning_status ===
@@ -529,7 +540,9 @@ export default function AttendanceToday() {
             })
 
             setSuccess(
-                'Đã lưu toàn bộ bảng chấm công hôm nay.',
+                `Đã lưu toàn bộ bảng chấm công ngày ${formatWorkDate(
+                    selectedDate,
+                )}.`,
             )
         } catch (err) {
             console.error(err)
@@ -599,7 +612,7 @@ export default function AttendanceToday() {
                     <Loader2 className="mx-auto h-9 w-9 animate-spin text-slate-500"/>
 
                     <p className="mt-4 text-sm font-medium text-slate-500">
-                        Đang tải danh sách nhân viên...
+                        Đang tải bảng chấm công ngày {formatWorkDate(selectedDate)}...
                     </p>
                 </div>
             </div>
@@ -619,29 +632,73 @@ export default function AttendanceToday() {
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500">
-                        {getVietnamDisplayDate()}
+                        Đang chấm công ngày{' '}
+                        <strong className="font-semibold text-slate-700">
+                            {formatWorkDate(
+                                selectedDate,
+                            )}
+                        </strong>
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => void saveAll()}
-                    disabled={savingAll}
-                    className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    {savingAll ? (
-                        <Loader2
-                            size={18}
-                            className="animate-spin"
-                        />
-                    ) : (
-                        <Save size={18}/>
-                    )}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div>
+                        <label
+                            htmlFor="attendance-date"
+                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                        >
+                            Ngày chấm công
+                        </label>
 
-                    {savingAll
-                        ? 'Đang lưu...'
-                        : 'Lưu tất cả'}
-                </button>
+                        <div className="relative">
+                            <CalendarDays
+                                size={17}
+                                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                            />
+
+                            <input
+                                id="attendance-date"
+                                type="date"
+                                value={
+                                    selectedDate
+                                }
+                                onChange={(event) =>
+                                    setSelectedDate(
+                                        event.target.value,
+                                    )
+                                }
+                                disabled={
+                                    savingAll ||
+                                    savingIds.size >
+                                        0
+                                }
+                                className="h-11 min-w-[180px] cursor-pointer rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            void saveAll()
+                        }
+                        disabled={savingAll}
+                        className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {savingAll ? (
+                            <Loader2
+                                size={18}
+                                className="animate-spin"
+                            />
+                        ) : (
+                            <Save size={18}/>
+                        )}
+
+                        {savingAll
+                            ? 'Đang lưu...'
+                            : 'Lưu tất cả'}
+                    </button>
+                </div>
             </div>
 
             <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -703,6 +760,27 @@ export default function AttendanceToday() {
                             {summary.leave}
                         </p>
                     </div>
+                </div>
+            </div>
+
+            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    <CalendarDays
+                        size={19}
+                    />
+                </div>
+
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                        Bảng chấm công đang mở
+                    </p>
+
+                    <p className="mt-1 text-base font-bold text-slate-950">
+                        Ngày{' '}
+                        {formatWorkDate(
+                            selectedDate,
+                        )}
+                    </p>
                 </div>
             </div>
 

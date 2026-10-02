@@ -15,6 +15,7 @@ import Reports from './pages/Reports'
 import Employees from './pages/Employees'
 import LeaveRequests from './pages/LeaveRequests'
 import LateArrivals from './pages/LateArrivals'
+import Settings from './pages/Settings'
 
 function App() {
     return (
@@ -64,6 +65,11 @@ function App() {
                 <Route
                     path="employees"
                     element={<Employees/>}
+                />
+
+                <Route
+                    path="settings"
+                    element={<Settings/>}
                 />
             </Route>
 

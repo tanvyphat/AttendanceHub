@@ -13,6 +13,7 @@ import {
     useState,
 } from 'react'
 
+import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
 
@@ -900,23 +901,20 @@ export default function AttendanceToday() {
                                     </td>
 
                                     <td className="px-5 py-4">
-                                        <input
-                                            type="text"
-                                        inputMode="numeric"
-                                        maxLength={5}
-                                        placeholder="HH:mm"
-                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
-                                            value={row.check_in}
-                                            onChange={(event) =>
+                                        <TimeInput
+                                            value={
+                                                row.check_in
+                                            }
+                                            onChange={(value) =>
                                                 updateRow(
                                                     employee.id,
                                                     {
                                                         check_in:
-                                                        event.target
-                                                            .value,
+                                                        value,
                                                     },
                                                 )
                                             }
+                                            aria-label={`Giờ vào sáng của ${employee.full_name}`}
                                             className="h-10 w-32 cursor-pointer rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
                                     </td>

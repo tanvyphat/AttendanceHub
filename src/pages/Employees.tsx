@@ -19,6 +19,7 @@ import {
 } from 'react'
 
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
 
 interface Employee {
@@ -518,6 +519,14 @@ export default function Employees() {
 
     return (
         <div className="p-6 lg:p-8">
+            <Toast
+                message={success}
+                duration={3000}
+                onClose={() =>
+                    setSuccess(null)
+                }
+            />
+
             {/* HEADER */}
 
             <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -639,13 +648,6 @@ export default function Employees() {
                 <div
                     className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                     {error}
-                </div>
-            )}
-
-            {success && (
-                <div
-                    className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                    {success}
                 </div>
             )}
 

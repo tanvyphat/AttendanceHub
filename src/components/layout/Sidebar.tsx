@@ -5,6 +5,7 @@ import {
     History,
     LayoutDashboard,
     Settings,
+    Timer,
     Users,
 } from 'lucide-react'
 import {NavLink} from 'react-router-dom'
@@ -29,6 +30,11 @@ const mainMenu = [
         name: 'Đi trễ',
         path: '/late',
         icon: Clock3,
+    },
+    {
+        name: 'Tăng ca',
+        path: '/overtime',
+        icon: Timer,
     },
     {
         name: 'Báo cáo',

@@ -14,6 +14,7 @@ import AttendanceHistory from './pages/AttendanceHistory'
 import Reports from './pages/Reports'
 import Employees from './pages/Employees'
 import LeaveRequests from './pages/LeaveRequests'
+import LateArrivals from './pages/LateArrivals'
 
 function App() {
     return (
@@ -47,19 +48,23 @@ function App() {
 
                 <Route
                     path="leave"
-                    element={<LeaveRequests />}
+                    element={<LeaveRequests/>}
+                />
+
+                <Route
+                    path="late"
+                    element={<LateArrivals/>}
                 />
 
                 <Route
                     path="reports"
-                    element={<Reports />}
+                    element={<Reports/>}
                 />
 
                 <Route
                     path="employees"
-                    element={<Employees />}
+                    element={<Employees/>}
                 />
-
             </Route>
 
             <Route

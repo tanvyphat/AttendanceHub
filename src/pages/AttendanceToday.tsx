@@ -13,6 +13,7 @@ import {
 } from 'react'
 
 import {supabase} from '../lib/supabase'
+import {isValid24HourTime} from '../utils/time24'
 
 type AttendanceStatus =
     | 'pending'
@@ -313,6 +314,13 @@ export default function AttendanceToday() {
             !row.check_in
         ) {
             return `${employee.full_name}: đã chọn Có mặt buổi sáng nhưng chưa nhập giờ vào.`
+        }
+
+        if (
+            row.morning_status === 'present' &&
+            !isValid24HourTime(row.check_in)
+        ) {
+            return `${employee.full_name}: giờ vào phải theo định dạng 24H HH:mm, ví dụ 07:30.`
         }
 
         return null
@@ -812,7 +820,11 @@ export default function AttendanceToday() {
 
                                     <td className="px-5 py-4">
                                         <input
-                                            type="time"
+                                            type="text"
+                                        inputMode="numeric"
+                                        maxLength={5}
+                                        placeholder="HH:mm"
+                                        pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
                                             value={row.check_in}
                                             onChange={(event) =>
                                                 updateRow(

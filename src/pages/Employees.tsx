@@ -831,7 +831,7 @@ export default function Employees() {
                 title="Ngưng hoạt động nhân viên?"
                 description={
                     statusConfirmEmployee
-                        ? `${statusConfirmEmployee.full_name} sẽ không còn xuất hiện trong trang Chấm công hôm nay. Toàn bộ lịch sử chấm công vẫn được giữ nguyên và bạn có thể kích hoạt lại nhân viên này bất cứ lúc nào.`
+                        ? `${statusConfirmEmployee.full_name} sẽ không còn xuất hiện trong trang Chấm công. Toàn bộ lịch sử chấm công vẫn được giữ nguyên và bạn có thể kích hoạt lại nhân viên này bất cứ lúc nào.`
                         : ''
                 }
                 confirmLabel="Ngưng hoạt động"

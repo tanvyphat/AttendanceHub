@@ -270,10 +270,30 @@ export default function Reports() {
             setError(null)
 
             try {
+                const {
+                    data: settingsData,
+                    error: settingsError,
+                } = await supabase
+                    .from('company_settings')
+                    .select('late_after_time')
+                    .eq('id', 1)
+                    .maybeSingle()
+
+                if (settingsError) {
+                    throw settingsError
+                }
+
+                const lateAfterTime =
+                    settingsData
+                        ?.late_after_time
+                        ?.slice(0, 5) ??
+                    '07:35'
+
                 await exportAttendanceExcel(
                     month,
                     employees,
                     attendance,
+                    lateAfterTime,
                 )
             } catch (err) {
                 console.error(

@@ -38,6 +38,7 @@ interface AttendanceRecord {
     employee_id: string
     work_date: string
     check_in: string | null
+    check_out: string | null
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
     is_late: boolean
@@ -52,6 +53,7 @@ interface EditRow {
     employee: Employee
     attendanceId?: string
     checkIn: string
+    checkOut: string
     morningStatus: AttendanceStatus
     afternoonStatus: AttendanceStatus
     isLate: boolean
@@ -353,6 +355,7 @@ export default function AttendanceHistory() {
                                     employee_id,
                                     work_date,
                                     check_in,
+                                    check_out,
                                     morning_status,
                                     afternoon_status,
                                     is_late,
@@ -626,6 +629,7 @@ export default function AttendanceHistory() {
                             employee_id,
                             work_date,
                             check_in,
+                            check_out,
                             morning_status,
                             afternoon_status,
                             is_late,
@@ -675,6 +679,15 @@ export default function AttendanceHistory() {
                                 checkIn:
                                     attendance
                                         ?.check_in
+                                        ?.slice(
+                                            0,
+                                            5,
+                                        ) ??
+                                    '',
+
+                                checkOut:
+                                    attendance
+                                        ?.check_out
                                         ?.slice(
                                             0,
                                             5,
@@ -778,6 +791,18 @@ export default function AttendanceHistory() {
                     )
                     return
                 }
+
+                if (
+                    row.checkOut &&
+                    !isValid24HourTime(
+                        row.checkOut,
+                    )
+                ) {
+                    setError(
+                        `${row.employee.full_name}: giờ về phải theo định dạng 24H HH:mm, ví dụ 17:00.`,
+                    )
+                    return
+                }
             }
 
             setSaving(true)
@@ -798,6 +823,15 @@ export default function AttendanceHistory() {
                                 row.morningStatus ===
                                 'present'
                                     ? row.checkIn ||
+                                      null
+                                    : null,
+
+                            check_out:
+                                row.morningStatus ===
+                                    'present' ||
+                                row.afternoonStatus ===
+                                    'present'
+                                    ? row.checkOut ||
                                       null
                                     : null,
 
@@ -1189,7 +1223,7 @@ export default function AttendanceHistory() {
                             </div>
                         ) : (
                             <div className="overflow-auto">
-                                <table className="w-full min-w-[1150px]">
+                                <table className="w-full min-w-[1280px]">
                                     <thead className="sticky top-0 z-10 bg-slate-50">
                                         <tr className="border-b border-slate-200">
                                             <th className="w-[250px] min-w-[250px] px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -1198,6 +1232,10 @@ export default function AttendanceHistory() {
 
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Giờ vào
+                                            </th>
+
+                                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                                                Giờ về
                                             </th>
 
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -1267,6 +1305,25 @@ export default function AttendanceHistory() {
                                                                     )
                                                                 }
                                                                 aria-label={`Giờ vào của ${row.employee.full_name}`}
+                                                                className="h-10 w-28 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                                            />
+                                                        </td>
+
+                                                        <td className="px-5 py-4">
+                                                            <TimeInput
+                                                                value={
+                                                                    row.checkOut
+                                                                }
+                                                                onChange={(value) =>
+                                                                    updateEditRow(
+                                                                        row.employee.id,
+                                                                        {
+                                                                            checkOut:
+                                                                                value,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                aria-label={`Giờ về của ${row.employee.full_name}`}
                                                                 className="h-10 w-28 rounded-lg border border-slate-200 px-3 text-sm font-semibold outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                                             />
                                                         </td>

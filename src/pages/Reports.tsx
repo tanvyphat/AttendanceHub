@@ -132,6 +132,7 @@ export default function Reports() {
                     employee_id,
                     work_date,
                     check_in,
+                    check_out,
                     morning_status,
                     afternoon_status,
                     is_late,

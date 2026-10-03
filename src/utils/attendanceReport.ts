@@ -439,6 +439,8 @@ export async function exportAttendanceExcel(
     employees: ReportEmployee[],
     attendance: ReportAttendance[],
     lateAfterTime = '07:35',
+    selectedDates?: string[],
+    periodLabel?: string,
 ) {
     const workbook =
         new ExcelJS.Workbook()
@@ -452,12 +454,6 @@ export async function exportAttendanceExcel(
     workbook.modified =
         new Date()
 
-    const summaries =
-        buildMonthlySummaries(
-            employees,
-            attendance,
-        )
-
     const {
         startDate,
         endDate,
@@ -469,6 +465,77 @@ export async function exportAttendanceExcel(
 
     const displayMonth =
         `${monthNumber}/${year}`
+
+    const fullMonthDates =
+        Array.from(
+            {
+                length: daysInMonth,
+            },
+            (_, index) =>
+                `${month}-${String(
+                    index + 1,
+                ).padStart(2, '0')}`,
+        )
+
+    const exportDates =
+        selectedDates
+            ? Array.from(
+                new Set(
+                    selectedDates.filter(
+                        (date) =>
+                            date >= startDate &&
+                            date <= endDate,
+                    ),
+                ),
+            ).sort()
+            : fullMonthDates
+
+    if (exportDates.length === 0) {
+        throw new Error(
+            'Chưa chọn tuần hoặc ngày nào để xuất báo cáo.',
+        )
+    }
+
+    const exportDateSet =
+        new Set(exportDates)
+
+    const filteredAttendance =
+        attendance.filter(
+            (record) =>
+                exportDateSet.has(
+                    record.work_date,
+                ),
+        )
+
+    const summaries =
+        buildMonthlySummaries(
+            employees,
+            filteredAttendance,
+        )
+
+    const firstExportDate =
+        exportDates[0]
+
+    const lastExportDate =
+        exportDates[
+            exportDates.length - 1
+        ]
+
+    const formatDate = (
+        value: string,
+    ) => {
+        const [
+            dateYear,
+            dateMonth,
+            dateDay,
+        ] = value.split('-')
+
+        return `${dateDay}/${dateMonth}/${dateYear}`
+    }
+
+    const reportPeriodLabel =
+        periodLabel ??
+        `Tháng ${displayMonth}`
 
     // ========================================
     // SHEET 1 — TỔNG HỢP
@@ -508,7 +575,11 @@ export async function exportAttendanceExcel(
     summarySheet.getCell(
         'A2',
     ).value =
-        `Tháng ${displayMonth} | ${startDate} → ${endDate}`
+        `${reportPeriodLabel} | ${formatDate(
+            firstExportDate,
+        )} → ${formatDate(
+            lastExportDate,
+        )}`
 
     summarySheet.getCell(
         'A2',
@@ -614,8 +685,8 @@ export async function exportAttendanceExcel(
     }
 
     // ========================================
-    // SHEET 2 — BẢNG CHẤM CÔNG THÁNG
-    // Ngày theo trục Y, nhân viên theo trục X
+    // SHEET 2 — BẢNG CHẤM CÔNG
+    // Nhân viên theo trục Y, ngày theo trục X
     // ========================================
 
     const attendanceSheet =
@@ -625,7 +696,7 @@ export async function exportAttendanceExcel(
                 views: [
                     {
                         state: 'frozen',
-                        xSplit: 1,
+                        xSplit: 3,
                         ySplit: 4,
                     },
                 ],
@@ -633,12 +704,23 @@ export async function exportAttendanceExcel(
         )
 
     const matrixHeaders = [
-        'Ngày',
+        'STT',
+        'Mã NV',
+        'Họ và tên',
 
-        ...employees.map(
-            (employee) =>
-                `${employee.employee_code}\n${employee.full_name}`,
+        ...exportDates.map(
+            (date) => {
+                const [, dateMonth, dateDay] =
+                    date.split('-')
+
+                return `${dateDay}/${dateMonth}`
+            },
         ),
+
+        'Ngày công',
+        'Đi trễ',
+        'Nghỉ phép',
+        'Không phép',
     ]
 
     const matrixLastColumn =
@@ -653,7 +735,7 @@ export async function exportAttendanceExcel(
     attendanceSheet.getCell(
         'A1',
     ).value =
-        `BẢNG CHẤM CÔNG THÁNG ${displayMonth}`
+        `BẢNG CHẤM CÔNG — ${reportPeriodLabel.toUpperCase()}`
 
     styleTitle(
         attendanceSheet,
@@ -667,7 +749,7 @@ export async function exportAttendanceExcel(
     attendanceSheet.getCell(
         'A2',
     ).value =
-        `Mỗi ô hiển thị: giờ vào, giờ ra, số phút trễ, trạng thái sáng/chiều và ghi chú. Mốc đi trễ: sau ${lateAfterTime}.`
+        `Mỗi ô hiển thị giờ vào, giờ ra, số phút trễ, trạng thái sáng/chiều và ghi chú. Mốc đi trễ: sau ${lateAfterTime}.`
 
     attendanceSheet.getCell(
         'A2',
@@ -690,7 +772,7 @@ export async function exportAttendanceExcel(
         matrixHeaderRow,
     )
 
-    matrixHeaderRow.height = 44
+    matrixHeaderRow.height = 40
 
     const attendanceMap =
         new Map<
@@ -698,30 +780,27 @@ export async function exportAttendanceExcel(
             ReportAttendance
         >()
 
-    attendance.forEach((record) => {
-        attendanceMap.set(
-            `${record.employee_id}_${record.work_date}`,
-            record,
-        )
-    })
+    filteredAttendance.forEach(
+        (record) => {
+            attendanceMap.set(
+                `${record.employee_id}_${record.work_date}`,
+                record,
+            )
+        },
+    )
 
-    for (
-        let day = 1;
-        day <= daysInMonth;
-        day += 1
-    ) {
-        const dayText =
-            String(day).padStart(2, '0')
+    employees.forEach(
+        (employee, index) => {
+            const summary =
+                summaries.find(
+                    (item) =>
+                        item.employeeId ===
+                        employee.id,
+                )
 
-        const date =
-            `${month}-${dayText}`
-
-        const row =
-            attendanceSheet.addRow([
-                `${dayText}/${monthNumber}/${year}`,
-
-                ...employees.map(
-                    (employee) => {
+            const dayValues =
+                exportDates.map(
+                    (date) => {
                         const record =
                             attendanceMap.get(
                                 `${employee.id}_${date}`,
@@ -732,83 +811,129 @@ export async function exportAttendanceExcel(
                             lateAfterTime,
                         )
                     },
-                ),
-            ])
+                )
 
-        row.height = 82
+            const row =
+                attendanceSheet.addRow([
+                    index + 1,
 
-        employees.forEach(
-            (employee, employeeIndex) => {
-                const record =
-                    attendanceMap.get(
-                        `${employee.id}_${date}`,
-                    )
+                    employee.employee_code,
 
-                if (!record) return
+                    employee.full_name,
 
-                const cell =
-                    row.getCell(
-                        employeeIndex + 2,
-                    )
+                    ...dayValues,
 
-                const hasUnapprovedLeave =
-                    record.morning_status ===
-                        'unapproved_leave' ||
-                    record.afternoon_status ===
-                        'unapproved_leave'
+                    summary?.workDays ?? 0,
 
-                const hasApprovedLeave =
-                    record.morning_status ===
-                        'approved_leave' ||
-                    record.afternoon_status ===
-                        'approved_leave'
+                    summary?.lateCount ?? 0,
 
-                const hasPresent =
-                    record.morning_status ===
-                        'present' ||
-                    record.afternoon_status ===
-                        'present'
+                    summary?.approvedLeaveDays ??
+                    0,
 
-                const fillColor =
-                    hasUnapprovedLeave
-                        ? 'FFFEE2E2'
-                        : record.is_late
-                          ? 'FFFEF3C7'
-                          : hasApprovedLeave
-                            ? 'FFDBEAFE'
-                            : hasPresent
-                              ? 'FFDCFCE7'
-                              : null
+                    summary?.unapprovedLeaveDays ??
+                    0,
+                ])
 
-                if (fillColor) {
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: {
-                            argb: fillColor,
-                        },
+            row.height = 82
+
+            exportDates.forEach(
+                (date, dateIndex) => {
+                    const record =
+                        attendanceMap.get(
+                            `${employee.id}_${date}`,
+                        )
+
+                    if (!record) return
+
+                    const cell =
+                        row.getCell(
+                            dateIndex + 4,
+                        )
+
+                    const hasUnapprovedLeave =
+                        record.morning_status ===
+                            'unapproved_leave' ||
+                        record.afternoon_status ===
+                            'unapproved_leave'
+
+                    const hasApprovedLeave =
+                        record.morning_status ===
+                            'approved_leave' ||
+                        record.afternoon_status ===
+                            'approved_leave'
+
+                    const hasPresent =
+                        record.morning_status ===
+                            'present' ||
+                        record.afternoon_status ===
+                            'present'
+
+                    const fillColor =
+                        hasUnapprovedLeave
+                            ? 'FFFEE2E2'
+                            : record.is_late
+                              ? 'FFFEF3C7'
+                              : hasApprovedLeave
+                                ? 'FFDBEAFE'
+                                : hasPresent
+                                  ? 'FFDCFCE7'
+                                  : null
+
+                    if (fillColor) {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: {
+                                argb: fillColor,
+                            },
+                        }
                     }
-                }
-            },
-        )
-    }
+                },
+            )
+        },
+    )
 
     attendanceSheet.getColumn(
         1,
-    ).width = 15
+    ).width = 6
+
+    attendanceSheet.getColumn(
+        2,
+    ).width = 12
+
+    attendanceSheet.getColumn(
+        3,
+    ).width = 28
+
+    const firstDayColumn = 4
+    const lastDayColumn =
+        firstDayColumn +
+        exportDates.length -
+        1
 
     for (
-        let column = 2;
+        let column = firstDayColumn;
+        column <= lastDayColumn;
+        column += 1
+    ) {
+        attendanceSheet.getColumn(
+            column,
+        ).width = 24
+    }
+
+    for (
+        let column =
+            lastDayColumn + 1;
         column <= matrixHeaders.length;
         column += 1
     ) {
         attendanceSheet.getColumn(
             column,
-        ).width = 28
+        ).width = 13
     }
 
     const matrixEndRow =
-        4 + daysInMonth
+        4 + employees.length
 
     applyTableBorders(
         attendanceSheet,
@@ -825,21 +950,29 @@ export async function exportAttendanceExcel(
         attendanceSheet.getCell(
             row,
             1,
-        ).font = {
-            bold: true,
-        }
-
-        attendanceSheet.getCell(
-            row,
-            1,
         ).alignment = {
             horizontal: 'center',
             vertical: 'middle',
         }
 
+        attendanceSheet.getCell(
+            row,
+            2,
+        ).alignment = {
+            vertical: 'middle',
+        }
+
+        attendanceSheet.getCell(
+            row,
+            3,
+        ).alignment = {
+            vertical: 'middle',
+        }
+
         for (
-            let column = 2;
-            column <= matrixHeaders.length;
+            let column =
+                firstDayColumn;
+            column <= lastDayColumn;
             column += 1
         ) {
             attendanceSheet.getCell(
@@ -851,6 +984,21 @@ export async function exportAttendanceExcel(
                 wrapText: true,
             }
         }
+
+        attendanceSheet.getCell(
+            row,
+            lastDayColumn + 1,
+        ).numFmt = '0.0'
+
+        attendanceSheet.getCell(
+            row,
+            lastDayColumn + 3,
+        ).numFmt = '0.0'
+
+        attendanceSheet.getCell(
+            row,
+            lastDayColumn + 4,
+        ).numFmt = '0.0'
     }
 
     // ========================================
@@ -877,7 +1025,7 @@ export async function exportAttendanceExcel(
     detailSheet.getCell(
         'A1',
     ).value =
-        `CHI TIẾT ĐI TRỄ & NGHỈ THÁNG ${displayMonth}`
+        `CHI TIẾT ĐI TRỄ & NGHỈ — ${reportPeriodLabel.toUpperCase()}`
 
     styleTitle(
         detailSheet,
@@ -917,7 +1065,7 @@ export async function exportAttendanceExcel(
         )
 
     const sortedAttendance = [
-        ...attendance,
+        ...filteredAttendance,
     ].sort((a, b) =>
         a.work_date.localeCompare(
             b.work_date,
@@ -1111,8 +1259,19 @@ export async function exportAttendanceExcel(
 
     anchor.href = url
 
+    const filePeriod =
+        selectedDates
+            ? `Tuan_${firstExportDate.slice(
+                8,
+                10,
+            )}-${lastExportDate.slice(
+                8,
+                10,
+            )}`
+            : 'Thang'
+
     anchor.download =
-        `ChamCong_${monthNumber}_${year}.xlsx`
+        `ChamCong_${monthNumber}_${year}_${filePeriod}.xlsx`
 
     document.body.appendChild(
         anchor,

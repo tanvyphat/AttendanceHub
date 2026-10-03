@@ -17,6 +17,7 @@ export interface ReportAttendance {
     employee_id: string
     work_date: string
     check_in: string | null
+    check_out: string | null
 
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
@@ -876,6 +877,7 @@ export async function exportAttendanceExcel(
         'Loại',
         'Buổi',
         'Giờ vào',
+        'Giờ về',
         'Ghi chú',
     ]
 
@@ -927,6 +929,11 @@ export async function exportAttendanceExcel(
                 'Sáng',
 
                 record.check_in?.slice(
+                    0,
+                    5,
+                ) ?? '',
+
+                record.check_out?.slice(
                     0,
                     5,
                 ) ?? '',

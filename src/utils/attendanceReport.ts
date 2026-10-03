@@ -854,7 +854,7 @@ export async function exportAttendanceExcel(
         )
 
     detailSheet.mergeCells(
-        'A1:G1',
+        'A1:H1',
     )
 
     detailSheet.getCell(
@@ -864,7 +864,7 @@ export async function exportAttendanceExcel(
 
     styleTitle(
         detailSheet,
-        'A1:G1',
+        'A1:H1',
     )
 
     detailSheet.addRow([])
@@ -976,6 +976,8 @@ export async function exportAttendanceExcel(
 
                 '',
 
+                '',
+
                 record.note ?? '',
             ])
 
@@ -996,6 +998,8 @@ export async function exportAttendanceExcel(
                     : 'Nghỉ không phép',
 
                 'Sáng',
+
+                '',
 
                 '',
 
@@ -1020,6 +1024,8 @@ export async function exportAttendanceExcel(
 
                 '',
 
+                '',
+
                 record.note ?? '',
             ])
         }
@@ -1031,6 +1037,7 @@ export async function exportAttendanceExcel(
         {width: 28},
         {width: 20},
         {width: 14},
+        {width: 12},
         {width: 12},
         {width: 35},
     ]

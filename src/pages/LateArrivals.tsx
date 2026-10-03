@@ -26,6 +26,7 @@ interface LateRecord {
     employee_id: string
     work_date: string
     check_in: string | null
+    check_out: string | null
     is_late: boolean
     note: string | null
     employees: EmployeeRelation | null
@@ -152,6 +153,7 @@ export default function LateArrivals() {
                                 employee_id,
                                 work_date,
                                 check_in,
+                                check_out,
                                 is_late,
                                 note,
                                 employees (
@@ -728,7 +730,7 @@ export default function LateArrivals() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full min-w-[950px]">
+                                <table className="w-full min-w-[1050px]">
                                     <thead className="bg-slate-50">
                                         <tr className="border-b border-slate-200">
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
@@ -741,6 +743,10 @@ export default function LateArrivals() {
 
                                             <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
                                                 Giờ vào
+                                            </th>
+
+                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
+                                                Giờ về
                                             </th>
 
                                             <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
@@ -797,6 +803,14 @@ export default function LateArrivals() {
 
                                                         <td className="px-5 py-4 text-center font-bold text-red-600">
                                                             {record.check_in?.slice(
+                                                                0,
+                                                                5,
+                                                            ) ??
+                                                                '—'}
+                                                        </td>
+
+                                                        <td className="px-5 py-4 text-center font-semibold text-slate-700">
+                                                            {record.check_out?.slice(
                                                                 0,
                                                                 5,
                                                             ) ??

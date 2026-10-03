@@ -55,11 +55,112 @@ function getVietnamMonth() {
     return `${year}-${month}`
 }
 
+type ReportRangeMode =
+    | 'month'
+    | 'weeks'
+
+interface ReportWeek {
+    index: number
+    startDate: string
+    endDate: string
+    dates: string[]
+    label: string
+}
+
+function formatShortDate(
+    value: string,
+) {
+    const [, month, day] =
+        value.split('-')
+
+    return `${day}/${month}`
+}
+
+function getMonthWeeks(
+    monthValue: string,
+): ReportWeek[] {
+    const {
+        daysInMonth,
+    } = getMonthRange(
+        monthValue,
+    )
+
+    const [year, month] =
+        monthValue
+            .split('-')
+            .map(Number)
+
+    const groups: string[][] = []
+
+    for (
+        let day = 1;
+        day <= daysInMonth;
+        day += 1
+    ) {
+        const date =
+            `${monthValue}-${String(
+                day,
+            ).padStart(2, '0')}`
+
+        const dayOfWeek =
+            new Date(
+                Date.UTC(
+                    year,
+                    month - 1,
+                    day,
+                ),
+            ).getUTCDay()
+
+        if (
+            groups.length === 0 ||
+            dayOfWeek === 1
+        ) {
+            groups.push([])
+        }
+
+        groups[
+            groups.length - 1
+        ].push(date)
+    }
+
+    return groups.map(
+        (dates, index) => ({
+            index,
+            startDate: dates[0],
+            endDate:
+                dates[
+                    dates.length - 1
+                ],
+            dates,
+            label:
+                `Tuần ${index + 1}: ${formatShortDate(
+                    dates[0],
+                )} - ${formatShortDate(
+                    dates[
+                        dates.length - 1
+                    ],
+                )}`,
+        }),
+    )
+}
+
 export default function Reports() {
     const [month, setMonth] =
         useState(
             getVietnamMonth(),
         )
+
+    const [
+        rangeMode,
+        setRangeMode,
+    ] = useState<ReportRangeMode>(
+        'month',
+    )
+
+    const [
+        selectedWeekIndexes,
+        setSelectedWeekIndexes,
+    ] = useState<number[]>([0])
 
     const [
         employees,
@@ -87,6 +188,140 @@ export default function Reports() {
         useState<string | null>(
             null,
         )
+
+    const monthWeeks =
+        useMemo(
+            () =>
+                getMonthWeeks(
+                    month,
+                ),
+            [month],
+        )
+
+    useEffect(() => {
+        setSelectedWeekIndexes([0])
+    }, [month])
+
+    const selectedDates =
+        useMemo(() => {
+            if (
+                rangeMode ===
+                'month'
+            ) {
+                return monthWeeks.flatMap(
+                    (week) =>
+                        week.dates,
+                )
+            }
+
+            const selectedSet =
+                new Set(
+                    selectedWeekIndexes,
+                )
+
+            return monthWeeks
+                .filter(
+                    (week) =>
+                        selectedSet.has(
+                            week.index,
+                        ),
+                )
+                .flatMap(
+                    (week) =>
+                        week.dates,
+                )
+        }, [
+            monthWeeks,
+            rangeMode,
+            selectedWeekIndexes,
+        ])
+
+    const filteredAttendance =
+        useMemo(() => {
+            const dateSet =
+                new Set(
+                    selectedDates,
+                )
+
+            return attendance.filter(
+                (record) =>
+                    dateSet.has(
+                        record.work_date,
+                    ),
+            )
+        }, [
+            attendance,
+            selectedDates,
+        ])
+
+    const periodLabel =
+        useMemo(() => {
+            const [
+                periodYear,
+                periodMonth,
+            ] = month.split('-')
+
+            if (
+                rangeMode ===
+                'month'
+            ) {
+                return `Tháng ${periodMonth}/${periodYear}`
+            }
+
+            const selectedSet =
+                new Set(
+                    selectedWeekIndexes,
+                )
+
+            const labels =
+                monthWeeks
+                    .filter(
+                        (week) =>
+                            selectedSet.has(
+                                week.index,
+                            ),
+                    )
+                    .map(
+                        (week) =>
+                            `Tuần ${week.index + 1}`,
+                    )
+
+            if (labels.length === 0) {
+                return `Chưa chọn tuần · Tháng ${periodMonth}/${periodYear}`
+            }
+
+            return `${labels.join(
+                ', ',
+            )} · Tháng ${periodMonth}/${periodYear}`
+        }, [
+            month,
+            monthWeeks,
+            rangeMode,
+            selectedWeekIndexes,
+        ])
+
+    const toggleWeek = (
+        weekIndex: number,
+    ) => {
+        setSelectedWeekIndexes(
+            (current) =>
+                current.includes(
+                    weekIndex,
+                )
+                    ? current.filter(
+                        (item) =>
+                            item !==
+                            weekIndex,
+                    )
+                    : [
+                        ...current,
+                        weekIndex,
+                    ].sort(
+                        (a, b) =>
+                            a - b,
+                    ),
+        )
+    }
 
     useEffect(() => {
         const loadReport =
@@ -204,12 +439,12 @@ export default function Reports() {
             () =>
                 buildMonthlySummaries(
                     employees,
-                    attendance,
+                    filteredAttendance,
                 ),
 
             [
                 employees,
-                attendance,
+                filteredAttendance,
             ],
         )
 
@@ -277,6 +512,11 @@ export default function Reports() {
                     employees,
                     attendance,
                     lateAfterTime,
+                    rangeMode ===
+                    'weeks'
+                        ? selectedDates
+                        : undefined,
+                    periodLabel,
                 )
             } catch (err) {
                 console.error(
@@ -294,11 +534,6 @@ export default function Reports() {
             }
         }
 
-    const [
-        year,
-        monthNumber,
-    ] = month.split('-')
-
     return (
         <div className="p-6 lg:p-8">
             <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
@@ -308,13 +543,13 @@ export default function Reports() {
                     </p>
 
                     <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
-                        Báo cáo tháng
+                        Báo cáo chấm công
                     </h1>
 
                     <p className="mt-2 text-sm text-slate-500">
-                        Tổng hợp ngày công,
-                        nghỉ phép, nghỉ không
-                        phép và đi trễ.
+                        Lọc theo tháng hoặc
+                        chọn một hay nhiều tuần
+                        trước khi xuất Excel.
                     </p>
                 </div>
 
@@ -341,7 +576,13 @@ export default function Reports() {
                             loading ||
                             exporting ||
                             employees.length ===
-                            0
+                            0 ||
+                            (
+                                rangeMode ===
+                                'weeks' &&
+                                selectedDates.length ===
+                                0
+                            )
                         }
                         className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -358,19 +599,163 @@ export default function Reports() {
 
                         {exporting
                             ? 'Đang tạo Excel...'
-                            : 'Xuất Excel'}
+                            : rangeMode ===
+                              'month'
+                              ? 'Xuất Excel tháng'
+                              : 'Xuất Excel đã lọc'}
                     </button>
                 </div>
             </div>
 
+            <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div>
+                        <p className="text-sm font-bold text-slate-900">
+                            Phạm vi báo cáo
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                            Chọn cả tháng hoặc một / nhiều tuần trong tháng.
+                        </p>
+                    </div>
+
+                    <div className="inline-flex w-fit rounded-xl bg-slate-100 p-1">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setRangeMode(
+                                    'month',
+                                )
+                            }
+                            className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                                rangeMode ===
+                                'month'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                        >
+                            Cả tháng
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setRangeMode(
+                                    'weeks',
+                                )
+                            }
+                            className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                                rangeMode ===
+                                'weeks'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                        >
+                            Theo tuần
+                        </button>
+                    </div>
+                </div>
+
+                {rangeMode ===
+                    'weeks' && (
+                    <div className="mt-5 border-t border-slate-100 pt-5">
+                        <div className="flex flex-wrap gap-2">
+                            {monthWeeks.map(
+                                (week) => {
+                                    const selected =
+                                        selectedWeekIndexes.includes(
+                                            week.index,
+                                        )
+
+                                    return (
+                                        <button
+                                            key={
+                                                week.index
+                                            }
+                                            type="button"
+                                            onClick={() =>
+                                                toggleWeek(
+                                                    week.index,
+                                                )
+                                            }
+                                            className={`cursor-pointer rounded-xl border px-4 py-3 text-left transition ${
+                                                selected
+                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span className="block text-sm font-bold">
+                                                Tuần{' '}
+                                                {
+                                                    week.index +
+                                                    1
+                                                }
+                                            </span>
+
+                                            <span className="mt-0.5 block text-xs">
+                                                {formatShortDate(
+                                                    week.startDate,
+                                                )}
+                                                {' → '}
+                                                {formatShortDate(
+                                                    week.endDate,
+                                                )}
+                                            </span>
+                                        </button>
+                                    )
+                                },
+                            )}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setSelectedWeekIndexes(
+                                        monthWeeks.map(
+                                            (
+                                                week,
+                                            ) =>
+                                                week.index,
+                                        ),
+                                    )
+                                }
+                                className="cursor-pointer font-bold text-emerald-700 hover:text-emerald-800"
+                            >
+                                Chọn tất cả tuần
+                            </button>
+
+                            <span className="text-slate-300">
+                                |
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setSelectedWeekIndexes(
+                                        [],
+                                    )
+                                }
+                                className="cursor-pointer font-bold text-slate-500 hover:text-slate-700"
+                            >
+                                Bỏ chọn
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </section>
+
             <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-800">
-                Báo cáo tháng{' '}
+                Đang xem:{' '}
                 <strong>
-                    {monthNumber}/
-                    {year}
+                    {periodLabel}
                 </strong>
 
                 {' — '}
+
+                {selectedDates.length}{' '}
+                ngày trong phạm vi báo cáo.
+                {' '}
 
                 1 buổi có mặt =
                 <strong>
@@ -478,11 +863,9 @@ export default function Reports() {
                                 </h2>
 
                                 <p className="mt-1 text-xs text-slate-400">
-                                    Tháng{' '}
                                     {
-                                        monthNumber
+                                        periodLabel
                                     }
-                                    /{year}
                                 </p>
                             </div>
 

@@ -33,6 +33,7 @@ interface Employee {
 interface AttendanceRow {
     id?: string
     check_in: string
+    check_out: string
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
     is_late: boolean
@@ -46,6 +47,7 @@ type AttendanceMap = Record<
 
 const emptyAttendance = (): AttendanceRow => ({
     check_in: '',
+    check_out: '',
     morning_status: 'pending',
     afternoon_status: 'pending',
     is_late: false,
@@ -238,6 +240,7 @@ export default function AttendanceToday() {
                 id,
                 employee_id,
                 check_in,
+                check_out,
                 morning_status,
                 afternoon_status,
                 is_late,
@@ -261,6 +264,11 @@ export default function AttendanceToday() {
                             id: attendance.id,
                             check_in:
                                 attendance.check_in?.slice(
+                                    0,
+                                    5,
+                                ) ?? '',
+                            check_out:
+                                attendance.check_out?.slice(
                                     0,
                                     5,
                                 ) ?? '',
@@ -323,6 +331,7 @@ export default function AttendanceToday() {
     ) => {
         updateRow(employeeId, {
             check_in: '',
+            check_out: '',
             morning_status: status,
             afternoon_status: status,
             is_late: false,
@@ -345,6 +354,13 @@ export default function AttendanceToday() {
             !isValid24HourTime(row.check_in)
         ) {
             return `${employee.full_name}: giờ vào phải theo định dạng 24H HH:mm, ví dụ 07:30.`
+        }
+
+        if (
+            row.check_out &&
+            !isValid24HourTime(row.check_out)
+        ) {
+            return `${employee.full_name}: giờ về phải theo định dạng 24H HH:mm, ví dụ 17:00.`
         }
 
         return null
@@ -380,6 +396,12 @@ export default function AttendanceToday() {
                     ? row.check_in || null
                     : null
 
+            const checkOut =
+                row.morning_status === 'present' ||
+                row.afternoon_status === 'present'
+                    ? row.check_out || null
+                    : null
+
             const {
                 data,
                 error: saveError,
@@ -390,6 +412,7 @@ export default function AttendanceToday() {
                         employee_id: employee.id,
                         work_date: selectedDate,
                         check_in: checkIn,
+                        check_out: checkOut,
                         morning_status:
                         row.morning_status,
                         afternoon_status:
@@ -405,6 +428,7 @@ export default function AttendanceToday() {
                     `
             id,
             check_in,
+            check_out,
             morning_status,
             afternoon_status,
             is_late,
@@ -421,6 +445,9 @@ export default function AttendanceToday() {
                 id: data.id,
                 check_in:
                     data.check_in?.slice(0, 5) ??
+                    '',
+                check_out:
+                    data.check_out?.slice(0, 5) ??
                     '',
                 morning_status:
                 data.morning_status,
@@ -483,6 +510,14 @@ export default function AttendanceToday() {
                                 ? row.check_in || null
                                 : null,
 
+                        check_out:
+                            row.morning_status ===
+                            'present' ||
+                            row.afternoon_status ===
+                            'present'
+                                ? row.check_out || null
+                                : null,
+
                         morning_status:
                         row.morning_status,
 
@@ -509,6 +544,7 @@ export default function AttendanceToday() {
             id,
             employee_id,
             check_in,
+            check_out,
             morning_status,
             afternoon_status,
             is_late,
@@ -531,6 +567,12 @@ export default function AttendanceToday() {
 
                         check_in:
                             attendance.check_in?.slice(
+                                0,
+                                5,
+                            ) ?? '',
+
+                        check_out:
+                            attendance.check_out?.slice(
                                 0,
                                 5,
                             ) ?? '',
@@ -852,7 +894,7 @@ export default function AttendanceToday() {
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="min-w-[1450px] w-full">
+                    <table className="min-w-[1580px] w-full">
                         <thead className="bg-slate-50">
                         <tr className="border-b border-slate-200">
                             <th className="w-[280px] min-w-[280px] px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -861,6 +903,10 @@ export default function AttendanceToday() {
 
                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Giờ vào sáng
+                            </th>
+
+                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                                Giờ về
                             </th>
 
                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -939,6 +985,25 @@ export default function AttendanceToday() {
                                                 )
                                             }
                                             aria-label={`Giờ vào sáng của ${employee.full_name}`}
+                                            className="h-10 w-32 cursor-pointer rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                        />
+                                    </td>
+
+                                    <td className="px-5 py-4">
+                                        <TimeInput
+                                            value={
+                                                row.check_out
+                                            }
+                                            onChange={(value) =>
+                                                updateRow(
+                                                    employee.id,
+                                                    {
+                                                        check_out:
+                                                        value,
+                                                    },
+                                                )
+                                            }
+                                            aria-label={`Giờ về của ${employee.full_name}`}
                                             className="h-10 w-32 cursor-pointer rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
                                     </td>

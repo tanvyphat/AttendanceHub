@@ -176,25 +176,8 @@ export default function Reports() {
                         (attendanceResult.data ??
                             []) as ReportAttendance[]
 
-                    const employeeIdsWithAttendance =
-                        new Set(
-                            attendanceData.map(
-                                (record) =>
-                                    record.employee_id,
-                            ),
-                        )
-
-                    const relevantEmployees =
-                        allEmployees.filter(
-                            (employee) =>
-                                employee.is_active ||
-                                employeeIdsWithAttendance.has(
-                                    employee.id,
-                                ),
-                        )
-
                     setEmployees(
-                        relevantEmployees,
+                        allEmployees,
                     )
 
                     setAttendance(

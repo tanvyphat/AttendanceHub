@@ -246,6 +246,123 @@ function getAttendanceCode(
     ].join(' / ')
 }
 
+function timeToMinutes(
+    value: string | null | undefined,
+) {
+    if (!value) return null
+
+    const [hours, minutes] = value
+        .slice(0, 5)
+        .split(':')
+        .map(Number)
+
+    if (
+        !Number.isFinite(hours) ||
+        !Number.isFinite(minutes)
+    ) {
+        return null
+    }
+
+    return hours * 60 + minutes
+}
+
+function getLateMinutes(
+    record: ReportAttendance | undefined,
+    lateAfterTime: string,
+) {
+    if (!record?.is_late) {
+        return 0
+    }
+
+    const checkInMinutes =
+        timeToMinutes(record.check_in)
+    const lateAfterMinutes =
+        timeToMinutes(lateAfterTime)
+
+    if (
+        checkInMinutes === null ||
+        lateAfterMinutes === null
+    ) {
+        return 0
+    }
+
+    return Math.max(
+        0,
+        checkInMinutes - lateAfterMinutes,
+    )
+}
+
+function getStatusLabel(
+    status: AttendanceStatus,
+) {
+    switch (status) {
+        case 'present':
+            return 'Có mặt'
+        case 'approved_leave':
+            return 'Nghỉ có phép'
+        case 'unapproved_leave':
+            return 'Nghỉ không phép'
+        default:
+            return 'Chưa chấm'
+    }
+}
+
+function getAttendanceDetails(
+    record: ReportAttendance | undefined,
+    lateAfterTime: string,
+) {
+    if (!record) {
+        return 'Chưa chấm'
+    }
+
+    const lines: string[] = []
+
+    if (record.check_in) {
+        lines.push(
+            `Vào: ${record.check_in.slice(0, 5)}`,
+        )
+    }
+
+    if (record.check_out) {
+        lines.push(
+            `Ra: ${record.check_out.slice(0, 5)}`,
+        )
+    }
+
+    if (record.is_late) {
+        const lateMinutes = getLateMinutes(
+            record,
+            lateAfterTime,
+        )
+
+        lines.push(
+            lateMinutes > 0
+                ? `Trễ: ${lateMinutes} phút`
+                : 'Đi trễ',
+        )
+    }
+
+    lines.push(
+        `Sáng: ${getStatusLabel(
+            record.morning_status,
+        )}`,
+    )
+
+    lines.push(
+        `Chiều: ${getStatusLabel(
+            record.afternoon_status,
+        )}`,
+    )
+
+    if (record.note?.trim()) {
+        lines.push(
+            `Ghi chú: ${record.note.trim()}`,
+        )
+    }
+
+    return lines.join('\n')
+}
+
 function getColumnLetter(
     columnNumber: number,
 ) {
@@ -406,6 +523,7 @@ export async function exportAttendanceExcel(
     month: string,
     employees: ReportEmployee[],
     attendance: ReportAttendance[],
+    lateAfterTime = '07:35',
 ) {
     const workbook =
         new ExcelJS.Workbook()
@@ -581,7 +699,8 @@ export async function exportAttendanceExcel(
     }
 
     // ========================================
-    // SHEET 2 — BẢNG CHẤM CÔNG 01 → 31
+    // SHEET 2 — BẢNG CHẤM CÔNG THÁNG
+    // Ngày theo trục Y, nhân viên theo trục X
     // ========================================
 
     const attendanceSheet =
@@ -591,7 +710,7 @@ export async function exportAttendanceExcel(
                 views: [
                     {
                         state: 'frozen',
-                        xSplit: 3,
+                        xSplit: 1,
                         ySplit: 4,
                     },
                 ],
@@ -599,24 +718,12 @@ export async function exportAttendanceExcel(
         )
 
     const matrixHeaders = [
-        'STT',
-        'Mã NV',
-        'Họ và tên',
+        'Ngày',
 
-        ...Array.from(
-            {
-                length: 31,
-            },
-            (_, index) =>
-                String(
-                    index + 1,
-                ).padStart(2, '0'),
+        ...employees.map(
+            (employee) =>
+                `${employee.employee_code}\n${employee.full_name}`,
         ),
-
-        'Ngày công',
-        'Đi trễ',
-        'Nghỉ phép',
-        'Không phép',
     ]
 
     const matrixLastColumn =
@@ -645,13 +752,17 @@ export async function exportAttendanceExcel(
     attendanceSheet.getCell(
         'A2',
     ).value =
-        'X = Có mặt | T = Đi trễ | P = Nghỉ có phép | KP = Nghỉ không phép | S = Sáng | C = Chiều'
+        `Mỗi ô hiển thị: giờ vào, giờ ra, số phút trễ, trạng thái sáng/chiều và ghi chú. Mốc đi trễ: sau ${lateAfterTime}.`
 
     attendanceSheet.getCell(
         'A2',
     ).alignment = {
         horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
     }
+
+    attendanceSheet.getRow(2).height = 32
 
     attendanceSheet.addRow([])
 
@@ -663,6 +774,8 @@ export async function exportAttendanceExcel(
     styleHeader(
         matrixHeaderRow,
     )
+
+    matrixHeaderRow.height = 44
 
     const attendanceMap =
         new Map<
@@ -677,104 +790,110 @@ export async function exportAttendanceExcel(
         )
     })
 
-    employees.forEach(
-        (employee, index) => {
-            const summary =
-                summaries.find(
-                    (item) =>
-                        item.employeeId ===
-                        employee.id,
-                )
+    for (
+        let day = 1;
+        day <= daysInMonth;
+        day += 1
+    ) {
+        const dayText =
+            String(day).padStart(2, '0')
 
-            const dayValues =
-                Array.from(
-                    {
-                        length: 31,
-                    },
-                    (_, dayIndex) => {
-                        const day =
-                            dayIndex + 1
+        const date =
+            `${month}-${dayText}`
 
-                        if (
-                            day >
-                            daysInMonth
-                        ) {
-                            return ''
-                        }
+        const row =
+            attendanceSheet.addRow([
+                `${dayText}/${monthNumber}/${year}`,
 
-                        const date =
-                            `${month}-${String(
-                                day,
-                            ).padStart(2, '0')}`
-
+                ...employees.map(
+                    (employee) => {
                         const record =
                             attendanceMap.get(
                                 `${employee.id}_${date}`,
                             )
 
-                        return getAttendanceCode(
+                        return getAttendanceDetails(
                             record,
+                            lateAfterTime,
                         )
                     },
-                )
-
-            attendanceSheet.addRow([
-                index + 1,
-
-                employee.employee_code,
-
-                employee.full_name,
-
-                ...dayValues,
-
-                summary?.workDays ?? 0,
-
-                summary?.lateCount ?? 0,
-
-                summary?.approvedLeaveDays ??
-                0,
-
-                summary?.unapprovedLeaveDays ??
-                0,
+                ),
             ])
-        },
-    )
+
+        row.height = 82
+
+        employees.forEach(
+            (employee, employeeIndex) => {
+                const record =
+                    attendanceMap.get(
+                        `${employee.id}_${date}`,
+                    )
+
+                if (!record) return
+
+                const cell =
+                    row.getCell(
+                        employeeIndex + 2,
+                    )
+
+                const hasUnapprovedLeave =
+                    record.morning_status ===
+                        'unapproved_leave' ||
+                    record.afternoon_status ===
+                        'unapproved_leave'
+
+                const hasApprovedLeave =
+                    record.morning_status ===
+                        'approved_leave' ||
+                    record.afternoon_status ===
+                        'approved_leave'
+
+                const hasPresent =
+                    record.morning_status ===
+                        'present' ||
+                    record.afternoon_status ===
+                        'present'
+
+                const fillColor =
+                    hasUnapprovedLeave
+                        ? 'FFFEE2E2'
+                        : record.is_late
+                          ? 'FFFEF3C7'
+                          : hasApprovedLeave
+                            ? 'FFDBEAFE'
+                            : hasPresent
+                              ? 'FFDCFCE7'
+                              : null
+
+                if (fillColor) {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: {
+                            argb: fillColor,
+                        },
+                    }
+                }
+            },
+        )
+    }
 
     attendanceSheet.getColumn(
         1,
-    ).width = 6
-
-    attendanceSheet.getColumn(
-        2,
-    ).width = 11
-
-    attendanceSheet.getColumn(
-        3,
-    ).width = 28
+    ).width = 15
 
     for (
-        let column = 4;
-        column <= 34;
+        let column = 2;
+        column <= matrixHeaders.length;
         column += 1
     ) {
         attendanceSheet.getColumn(
             column,
-        ).width = 11
-    }
-
-    for (
-        let column = 35;
-        column <=
-        matrixHeaders.length;
-        column += 1
-    ) {
-        attendanceSheet.getColumn(
-            column,
-        ).width = 13
+        ).width = 28
     }
 
     const matrixEndRow =
-        4 + employees.length
+        4 + daysInMonth
 
     applyTableBorders(
         attendanceSheet,
@@ -784,56 +903,39 @@ export async function exportAttendanceExcel(
     )
 
     for (
-        let column = 4;
-        column <= 34;
-        column += 1
-    ) {
-        const day =
-            column - 3
-
-        if (
-            day >
-            daysInMonth
-        ) {
-            for (
-                let row = 4;
-                row <= matrixEndRow;
-                row += 1
-            ) {
-                attendanceSheet.getCell(
-                    row,
-                    column,
-                ).fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-
-                    fgColor: {
-                        argb: 'FFF1F5F9',
-                    },
-                }
-            }
-        }
-    }
-
-    for (
         let row = 5;
         row <= matrixEndRow;
         row += 1
     ) {
         attendanceSheet.getCell(
             row,
-            35,
-        ).numFmt = '0.0'
+            1,
+        ).font = {
+            bold: true,
+        }
 
         attendanceSheet.getCell(
             row,
-            37,
-        ).numFmt = '0.0'
+            1,
+        ).alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+        }
 
-        attendanceSheet.getCell(
-            row,
-            38,
-        ).numFmt = '0.0'
+        for (
+            let column = 2;
+            column <= matrixHeaders.length;
+            column += 1
+        ) {
+            attendanceSheet.getCell(
+                row,
+                column,
+            ).alignment = {
+                horizontal: 'left',
+                vertical: 'top',
+                wrapText: true,
+            }
+        }
     }
 
     // ========================================
@@ -854,7 +956,7 @@ export async function exportAttendanceExcel(
         )
 
     detailSheet.mergeCells(
-        'A1:H1',
+        'A1:I1',
     )
 
     detailSheet.getCell(
@@ -864,7 +966,7 @@ export async function exportAttendanceExcel(
 
     styleTitle(
         detailSheet,
-        'A1:H1',
+        'A1:I1',
     )
 
     detailSheet.addRow([])
@@ -878,6 +980,7 @@ export async function exportAttendanceExcel(
         'Buổi',
         'Giờ vào',
         'Giờ về',
+        'Trễ (phút)',
         'Ghi chú',
     ]
 
@@ -938,6 +1041,11 @@ export async function exportAttendanceExcel(
                     5,
                 ) ?? '',
 
+                getLateMinutes(
+                    record,
+                    lateAfterTime,
+                ),
+
                 record.note ?? '',
             ])
         }
@@ -973,6 +1081,12 @@ export async function exportAttendanceExcel(
                     : 'Nghỉ không phép',
 
                 'Cả ngày',
+
+                '',
+
+                '',
+
+                '',
 
                 '',
 
@@ -1039,6 +1153,7 @@ export async function exportAttendanceExcel(
         {width: 14},
         {width: 12},
         {width: 12},
+        {width: 14},
         {width: 35},
     ]
 

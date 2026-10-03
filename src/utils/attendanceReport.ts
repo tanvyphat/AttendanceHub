@@ -161,91 +161,6 @@ export function buildMonthlySummaries(
     })
 }
 
-function getSessionCode(
-    session:
-        | 'morning'
-        | 'afternoon',
-    status: AttendanceStatus,
-    isLate: boolean,
-) {
-    const prefix =
-        session === 'morning'
-            ? 'S'
-            : 'C'
-
-    switch (status) {
-        case 'present':
-            if (
-                session === 'morning' &&
-                isLate
-            ) {
-                return `${prefix}:T`
-            }
-
-            return `${prefix}:X`
-
-        case 'approved_leave':
-            return `${prefix}:P`
-
-        case 'unapproved_leave':
-            return `${prefix}:KP`
-
-        default:
-            return `${prefix}:-`
-    }
-}
-
-function getAttendanceCode(
-    record?: ReportAttendance,
-) {
-    if (!record) {
-        return ''
-    }
-
-    if (
-        record.morning_status ===
-        'present' &&
-        record.afternoon_status ===
-        'present'
-    ) {
-        return record.is_late
-            ? 'T'
-            : 'X'
-    }
-
-    if (
-        record.morning_status ===
-        'approved_leave' &&
-        record.afternoon_status ===
-        'approved_leave'
-    ) {
-        return 'P'
-    }
-
-    if (
-        record.morning_status ===
-        'unapproved_leave' &&
-        record.afternoon_status ===
-        'unapproved_leave'
-    ) {
-        return 'KP'
-    }
-
-    return [
-        getSessionCode(
-            'morning',
-            record.morning_status,
-            record.is_late,
-        ),
-
-        getSessionCode(
-            'afternoon',
-            record.afternoon_status,
-            false,
-        ),
-    ].join(' / ')
-}
-
 function timeToMinutes(
     value: string | null | undefined,
 ) {
@@ -1088,10 +1003,6 @@ export async function exportAttendanceExcel(
 
                 '',
 
-                '',
-
-                '',
-
                 record.note ?? '',
             ])
 
@@ -1117,6 +1028,8 @@ export async function exportAttendanceExcel(
 
                 '',
 
+                '',
+
                 record.note ?? '',
             ])
         }
@@ -1135,6 +1048,8 @@ export async function exportAttendanceExcel(
                     : 'Nghỉ không phép',
 
                 'Chiều',
+
+                '',
 
                 '',
 

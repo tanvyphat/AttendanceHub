@@ -311,8 +311,9 @@ function styleTitle(
         )
 
     cell.font = {
+        name: 'Times New Roman',
         bold: true,
-        size: 16,
+        size: 18,
     }
 
     cell.alignment = {
@@ -328,7 +329,9 @@ function styleHeader(
 
     row.eachCell((cell) => {
         cell.font = {
+            name: 'Times New Roman',
             bold: true,
+            size: 12,
         }
 
         cell.alignment = {
@@ -432,6 +435,30 @@ function applyTableBorders(
             }
         }
     }
+}
+
+function applyWorksheetTypography(
+    worksheet: ExcelJS.Worksheet,
+) {
+    worksheet.eachRow(
+        {includeEmpty: false},
+        (row, rowNumber) => {
+            row.eachCell(
+                {includeEmpty: false},
+                (cell, columnNumber) => {
+                    const isTitle =
+                        rowNumber === 1 &&
+                        columnNumber === 1
+
+                    cell.font = {
+                        ...(cell.font ?? {}),
+                        name: 'Times New Roman',
+                        size: isTitle ? 18 : 12,
+                    }
+                },
+            )
+        },
+    )
 }
 
 export async function exportAttendanceExcel(
@@ -1230,6 +1257,16 @@ export async function exportAttendanceExcel(
             detailHeaders.length,
         )
     }
+
+    // Apply consistent Excel typography to every populated cell.
+    // Body text: Times New Roman 12pt; main title: Times New Roman 18pt.
+    workbook.worksheets.forEach(
+        (worksheet) => {
+            applyWorksheetTypography(
+                worksheet,
+            )
+        },
+    )
 
     // ========================================
     // DOWNLOAD

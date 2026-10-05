@@ -599,7 +599,7 @@ export async function exportAttendanceExcel(
         )
 
     summarySheet.mergeCells(
-        'A1:G1',
+        'A1:F1',
     )
 
     summarySheet.getCell(
@@ -609,11 +609,11 @@ export async function exportAttendanceExcel(
 
     styleTitle(
         summarySheet,
-        'A1:G1',
+        'A1:F1',
     )
 
     summarySheet.mergeCells(
-        'A2:G2',
+        'A2:F2',
     )
 
     summarySheet.getCell(
@@ -635,7 +635,6 @@ export async function exportAttendanceExcel(
 
     const summaryHeaders = [
         'STT',
-        'Mã NV',
         'Họ và tên',
         'Ngày công',
         'Ngày nghỉ có phép',
@@ -655,8 +654,6 @@ export async function exportAttendanceExcel(
             summarySheet.addRow([
                 index + 1,
 
-                summary.employeeCode,
-
                 summary.fullName,
 
                 summary.workDays,
@@ -672,7 +669,6 @@ export async function exportAttendanceExcel(
 
     summarySheet.columns = [
         {width: 7},
-        {width: 12},
         {width: 30},
         {width: 12},
         {width: 20},
@@ -697,6 +693,11 @@ export async function exportAttendanceExcel(
     ) {
         summarySheet.getCell(
             row,
+            3,
+        ).numFmt = '0.0'
+
+        summarySheet.getCell(
+            row,
             4,
         ).numFmt = '0.0'
 
@@ -704,16 +705,11 @@ export async function exportAttendanceExcel(
             row,
             5,
         ).numFmt = '0.0'
-
-        summarySheet.getCell(
-            row,
-            6,
-        ).numFmt = '0.0'
     }
 
     summarySheet.autoFilter = {
         from: 'A4',
-        to: `G${summaryEndRow}`,
+        to: `F${summaryEndRow}`,
     }
 
     // ========================================
@@ -728,7 +724,7 @@ export async function exportAttendanceExcel(
                 views: [
                     {
                         state: 'frozen',
-                        xSplit: 3,
+                        xSplit: 2,
                         ySplit: 4,
                     },
                 ],
@@ -737,7 +733,6 @@ export async function exportAttendanceExcel(
 
     const matrixHeaders = [
         'STT',
-        'Mã NV',
         'Họ và tên',
 
         ...exportDates.map(
@@ -849,8 +844,6 @@ export async function exportAttendanceExcel(
                 attendanceSheet.addRow([
                     index + 1,
 
-                    employee.employee_code,
-
                     employee.full_name,
 
                     ...dayValues,
@@ -879,7 +872,7 @@ export async function exportAttendanceExcel(
 
                     const cell =
                         row.getCell(
-                            dateIndex + 4,
+                            dateIndex + 3,
                         )
 
                     const hasUnapprovedLeave =
@@ -931,13 +924,9 @@ export async function exportAttendanceExcel(
 
     attendanceSheet.getColumn(
         2,
-    ).width = 12
-
-    attendanceSheet.getColumn(
-        3,
     ).width = 28
 
-    const firstDayColumn = 4
+    const firstDayColumn = 3
     const lastDayColumn =
         firstDayColumn +
         exportDates.length -
@@ -994,13 +983,6 @@ export async function exportAttendanceExcel(
             vertical: 'middle',
         }
 
-        attendanceSheet.getCell(
-            row,
-            3,
-        ).alignment = {
-            vertical: 'middle',
-        }
-
         for (
             let column =
                 firstDayColumn;
@@ -1051,7 +1033,7 @@ export async function exportAttendanceExcel(
         )
 
     detailSheet.mergeCells(
-        'A1:I1',
+        'A1:H1',
     )
 
     detailSheet.getCell(
@@ -1061,7 +1043,7 @@ export async function exportAttendanceExcel(
 
     styleTitle(
         detailSheet,
-        'A1:I1',
+        'A1:H1',
     )
 
     detailSheet.addRow([])
@@ -1069,7 +1051,6 @@ export async function exportAttendanceExcel(
 
     const detailHeaders = [
         'Ngày',
-        'Mã NV',
         'Họ và tên',
         'Loại',
         'Buổi',
@@ -1118,8 +1099,6 @@ export async function exportAttendanceExcel(
             detailSheet.addRow([
                 record.work_date,
 
-                employee.employee_code,
-
                 employee.full_name,
 
                 'Đi trễ',
@@ -1166,8 +1145,6 @@ export async function exportAttendanceExcel(
             detailSheet.addRow([
                 record.work_date,
 
-                employee.employee_code,
-
                 employee.full_name,
 
                 record.morning_status ===
@@ -1193,8 +1170,6 @@ export async function exportAttendanceExcel(
             detailSheet.addRow([
                 record.work_date,
 
-                employee.employee_code,
-
                 employee.full_name,
 
                 record.morning_status ===
@@ -1218,8 +1193,6 @@ export async function exportAttendanceExcel(
             detailSheet.addRow([
                 record.work_date,
 
-                employee.employee_code,
-
                 employee.full_name,
 
                 record.afternoon_status ===
@@ -1242,7 +1215,6 @@ export async function exportAttendanceExcel(
 
     detailSheet.columns = [
         {width: 14},
-        {width: 12},
         {width: 28},
         {width: 20},
         {width: 14},

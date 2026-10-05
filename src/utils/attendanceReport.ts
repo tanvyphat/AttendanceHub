@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import JSZip from 'jszip'
 
 export type AttendanceStatus =
     | 'pending'
@@ -437,28 +438,44 @@ function applyTableBorders(
     }
 }
 
-function applyWorksheetTypography(
-    worksheet: ExcelJS.Worksheet,
+async function applyWorkbookDefaultFont(
+    buffer: ArrayBuffer,
 ) {
-    worksheet.eachRow(
-        {includeEmpty: false},
-        (row, rowNumber) => {
-            row.eachCell(
-                {includeEmpty: false},
-                (cell, columnNumber) => {
-                    const isTitle =
-                        rowNumber === 1 &&
-                        columnNumber === 1
+    const zip =
+        await JSZip.loadAsync(buffer)
 
-                    cell.font = {
-                        ...(cell.font ?? {}),
-                        name: 'Times New Roman',
-                        size: isTitle ? 18 : 12,
-                    }
-                },
-            )
-        },
+    const stylesEntry =
+        zip.file('xl/styles.xml')
+
+    if (!stylesEntry) {
+        return buffer
+    }
+
+    const stylesXml =
+        await stylesEntry.async('string')
+
+    const defaultFontPattern =
+        /(<fonts\b[^>]*>\s*)<font>[\s\S]*?<\/font>/
+
+    if (!defaultFontPattern.test(stylesXml)) {
+        return buffer
+    }
+
+    const updatedStylesXml =
+        stylesXml.replace(
+            defaultFontPattern,
+            '$1<font><sz val="12"/><color theme="1"/><name val="Times New Roman"/><family val="1"/><charset val="1"/></font>',
+        )
+
+    zip.file(
+        'xl/styles.xml',
+        updatedStylesXml,
     )
+
+    return zip.generateAsync({
+        type: 'arraybuffer',
+        compression: 'DEFLATE',
+    })
 }
 
 export async function exportAttendanceExcel(
@@ -582,7 +599,7 @@ export async function exportAttendanceExcel(
         )
 
     summarySheet.mergeCells(
-        'A1:J1',
+        'A1:G1',
     )
 
     summarySheet.getCell(
@@ -592,11 +609,11 @@ export async function exportAttendanceExcel(
 
     styleTitle(
         summarySheet,
-        'A1:J1',
+        'A1:G1',
     )
 
     summarySheet.mergeCells(
-        'A2:J2',
+        'A2:G2',
     )
 
     summarySheet.getCell(
@@ -620,11 +637,8 @@ export async function exportAttendanceExcel(
         'STT',
         'Mã NV',
         'Họ và tên',
-        'Buổi có mặt',
         'Ngày công',
-        'Buổi nghỉ có phép',
         'Ngày nghỉ có phép',
-        'Buổi nghỉ không phép',
         'Ngày nghỉ không phép',
         'Số lần đi trễ',
     ]
@@ -645,15 +659,9 @@ export async function exportAttendanceExcel(
 
                 summary.fullName,
 
-                summary.presentSessions,
-
                 summary.workDays,
 
-                summary.approvedLeaveSessions,
-
                 summary.approvedLeaveDays,
-
-                summary.unapprovedLeaveSessions,
 
                 summary.unapprovedLeaveDays,
 
@@ -666,11 +674,8 @@ export async function exportAttendanceExcel(
         {width: 7},
         {width: 12},
         {width: 30},
-        {width: 15},
         {width: 12},
         {width: 20},
-        {width: 20},
-        {width: 22},
         {width: 22},
         {width: 15},
     ]
@@ -692,23 +697,23 @@ export async function exportAttendanceExcel(
     ) {
         summarySheet.getCell(
             row,
+            4,
+        ).numFmt = '0.0'
+
+        summarySheet.getCell(
+            row,
             5,
         ).numFmt = '0.0'
 
         summarySheet.getCell(
             row,
-            7,
-        ).numFmt = '0.0'
-
-        summarySheet.getCell(
-            row,
-            9,
+            6,
         ).numFmt = '0.0'
     }
 
     summarySheet.autoFilter = {
         from: 'A4',
-        to: `J${summaryEndRow}`,
+        to: `G${summaryEndRow}`,
     }
 
     // ========================================
@@ -1258,16 +1263,6 @@ export async function exportAttendanceExcel(
         )
     }
 
-    // Apply consistent Excel typography to every populated cell.
-    // Body text: Times New Roman 12pt; main title: Times New Roman 18pt.
-    workbook.worksheets.forEach(
-        (worksheet) => {
-            applyWorksheetTypography(
-                worksheet,
-            )
-        },
-    )
-
     // ========================================
     // DOWNLOAD
     // ========================================
@@ -1275,13 +1270,16 @@ export async function exportAttendanceExcel(
     const buffer =
         await workbook.xlsx.writeBuffer()
 
+    // Patch the XLSX Normal style so the workbook default font,
+    // including blank cells, is Times New Roman 12pt.
+    const styledBuffer =
+        await applyWorkbookDefaultFont(
+            buffer,
+        )
+
     const blob =
         new Blob(
-            [
-                new Uint8Array(
-                    buffer,
-                ),
-            ],
+            [styledBuffer],
             {
                 type:
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -892,85 +892,96 @@ export default function AttendanceToday() {
                 </div>
             )}
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="min-w-[1580px] w-full">
-                        <thead className="bg-slate-50">
-                        <tr className="border-b border-slate-200">
-                            <th className="w-[280px] min-w-[280px] px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Nhân viên
-                            </th>
+            <div className="space-y-4">
+                {employees.map((employee) => {
+                    const row =
+                        rows[employee.id] ??
+                        emptyAttendance()
 
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Giờ vào sáng
-                            </th>
+                    const isLate =
+                        row.is_late ||
+                        (row.check_in !== '' &&
+                            row.check_in >
+                            workSettings.late_after_time)
 
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Giờ về
-                            </th>
+                    const saving =
+                        savingIds.has(
+                            employee.id,
+                        )
 
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Ca sáng
-                            </th>
+                    return (
+                        <section
+                            key={employee.id}
+                            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                        >
+                            <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">
+                                        {employee.employee_code
+                                            .slice(-2)}
+                                    </div>
 
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Ca chiều
-                            </th>
-
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Trạng thái
-                            </th>
-
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Thao tác nhanh
-                            </th>
-
-                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Ghi chú
-                            </th>
-
-                            <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wide text-slate-500">
-                                Lưu
-                            </th>
-                        </tr>
-                        </thead>
-
-                        <tbody>
-                        {employees.map((employee) => {
-                            const row =
-                                rows[employee.id] ??
-                                emptyAttendance()
-
-                            const isLate =
-                                row.is_late ||
-                                (row.check_in !== '' &&
-                                    row.check_in >
-                                    workSettings.late_after_time)
-
-                            const saving =
-                                savingIds.has(
-                                    employee.id,
-                                )
-
-                            return (
-                                <tr
-                                    key={employee.id}
-                                    className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                                >
-                                    <td className="w-[280px] min-w-[280px] px-5 py-4 align-middle">
-                                        <p
-                                            className="whitespace-nowrap font-semibold text-slate-900"
-                                            title={employee.full_name}
-                                        >
+                                    <div className="min-w-0">
+                                        <p className="truncate font-bold text-slate-950">
                                             {employee.full_name}
                                         </p>
 
-                                        <p className="mt-1 whitespace-nowrap text-xs text-slate-400">
+                                        <p className="mt-0.5 text-xs font-medium text-slate-400">
                                             {employee.employee_code}
                                         </p>
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
+                                    <div className="ml-1 shrink-0">
+                                        {isLate ? (
+                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+                                                <Clock3 size={13} />
+                                                Đi trễ
+                                            </span>
+                                        ) : row.check_in ? (
+                                            <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                                                Đúng giờ
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                                                Chưa xác định
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() =>
+                                        void saveEmployee(
+                                            employee,
+                                        )
+                                    }
+                                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                                >
+                                    {saving ? (
+                                        <Loader2
+                                            size={15}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <Save size={15} />
+                                    )}
+
+                                    Lưu chấm công
+                                </button>
+                            </div>
+
+                            <div className="p-5">
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                    <div>
+                                        <label
+                                            htmlFor={`check-in-${employee.id}`}
+                                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Giờ vào sáng
+                                        </label>
+
                                         <TimeInput
                                             value={
                                                 row.check_in
@@ -980,16 +991,23 @@ export default function AttendanceToday() {
                                                     employee.id,
                                                     {
                                                         check_in:
-                                                        value,
+                                                            value,
                                                     },
                                                 )
                                             }
                                             aria-label={`Giờ vào sáng của ${employee.full_name}`}
-                                            className="h-10 w-32 cursor-pointer rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                            className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3.5 text-sm font-medium outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
+                                    <div>
+                                        <label
+                                            htmlFor={`check-out-${employee.id}`}
+                                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Giờ về
+                                        </label>
+
                                         <TimeInput
                                             value={
                                                 row.check_out
@@ -999,17 +1017,25 @@ export default function AttendanceToday() {
                                                     employee.id,
                                                     {
                                                         check_out:
-                                                        value,
+                                                            value,
                                                     },
                                                 )
                                             }
                                             aria-label={`Giờ về của ${employee.full_name}`}
-                                            className="h-10 w-32 cursor-pointer rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                            className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 px-3.5 text-sm font-medium outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
+                                    <div>
+                                        <label
+                                            htmlFor={`morning-status-${employee.id}`}
+                                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Ca sáng
+                                        </label>
+
                                         <select
+                                            id={`morning-status-${employee.id}`}
                                             value={
                                                 row.morning_status
                                             }
@@ -1023,7 +1049,7 @@ export default function AttendanceToday() {
                                                     },
                                                 )
                                             }
-                                            className="h-10 w-40 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                                            className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         >
                                             {statusOptions.map(
                                                 (option) => (
@@ -1040,10 +1066,18 @@ export default function AttendanceToday() {
                                                 ),
                                             )}
                                         </select>
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
+                                    <div>
+                                        <label
+                                            htmlFor={`afternoon-status-${employee.id}`}
+                                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Ca chiều
+                                        </label>
+
                                         <select
+                                            id={`afternoon-status-${employee.id}`}
                                             value={
                                                 row.afternoon_status
                                             }
@@ -1057,7 +1091,7 @@ export default function AttendanceToday() {
                                                     },
                                                 )
                                             }
-                                            className="h-10 w-40 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                                            className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         >
                                             {statusOptions.map(
                                                 (option) => (
@@ -1074,30 +1108,15 @@ export default function AttendanceToday() {
                                                 ),
                                             )}
                                         </select>
-                                    </td>
+                                    </div>
+                                </div>
 
-                                    <td className="px-5 py-4">
-                                        {isLate ? (
-                                            <span
-                                                className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
-                          <Clock3 size={13}/>
+                                <div className="mt-4 grid gap-4 lg:grid-cols-[auto_1fr]">
+                                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                                            Thao tác nhanh
+                                        </p>
 
-                          Đi trễ
-                        </span>
-                                        ) : row.check_in ? (
-                                            <span
-                                                className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                          Đúng giờ
-                        </span>
-                                        ) : (
-                                            <span
-                                                className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
-                          Chưa xác định
-                        </span>
-                                        )}
-                                    </td>
-
-                                    <td className="px-5 py-4">
                                         <div className="flex flex-wrap gap-2">
                                             <button
                                                 type="button"
@@ -1108,7 +1127,7 @@ export default function AttendanceToday() {
                                                 }
                                                 className="cursor-pointer rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
                                             >
-                                                Có mặt
+                                                Có mặt cả ngày
                                             </button>
 
                                             <button
@@ -1137,10 +1156,18 @@ export default function AttendanceToday() {
                                                 Không phép
                                             </button>
                                         </div>
-                                    </td>
+                                    </div>
 
-                                    <td className="px-5 py-4">
+                                    <div>
+                                        <label
+                                            htmlFor={`note-${employee.id}`}
+                                            className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        >
+                                            Ghi chú
+                                        </label>
+
                                         <input
+                                            id={`note-${employee.id}`}
                                             type="text"
                                             value={row.note}
                                             onChange={(event) =>
@@ -1148,45 +1175,20 @@ export default function AttendanceToday() {
                                                     employee.id,
                                                     {
                                                         note:
-                                                        event.target
-                                                            .value,
+                                                            event.target
+                                                                .value,
                                                     },
                                                 )
                                             }
-                                            placeholder="Ghi chú..."
-                                            className="h-10 w-48 rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                            placeholder="Nhập ghi chú cho nhân viên..."
+                                            className="h-11 w-full rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                                         />
-                                    </td>
-
-                                    <td className="px-5 py-4 text-right">
-                                        <button
-                                            type="button"
-                                            disabled={saving}
-                                            onClick={() =>
-                                                void saveEmployee(
-                                                    employee,
-                                                )
-                                            }
-                                            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {saving ? (
-                                                <Loader2
-                                                    size={14}
-                                                    className="animate-spin"
-                                                />
-                                            ) : (
-                                                <Save size={14}/>
-                                            )}
-
-                                            Lưu
-                                        </button>
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    )
+                })}
             </div>
         </div>
     )

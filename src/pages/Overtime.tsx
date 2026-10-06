@@ -455,9 +455,7 @@ export default function Overtime() {
         setError(null)
 
         setForm({
-            employeeIds: employees
-                .filter((employee) => employee.is_active)
-                .map((employee) => employee.id),
+            employeeIds: [],
 
             overtimeDate:
                 dateForMonth,

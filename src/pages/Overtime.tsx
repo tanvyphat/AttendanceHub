@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
     type FormEvent,
+    Fragment,
     useEffect,
     useMemo,
     useState,
@@ -45,7 +46,7 @@ interface OvertimeRecord {
 
 interface OvertimeForm {
     id?: string
-    employeeId: string
+    employeeIds: string[]
     overtimeDate: string
     endTime: string
     note: string
@@ -454,13 +455,9 @@ export default function Overtime() {
         setError(null)
 
         setForm({
-            employeeId:
-                employees.find(
-                    (employee) =>
-                        employee.is_active,
-                )?.id ??
-                employees[0]?.id ??
-                '',
+            employeeIds: employees
+                .filter((employee) => employee.is_active)
+                .map((employee) => employee.id),
 
             overtimeDate:
                 dateForMonth,
@@ -481,8 +478,7 @@ export default function Overtime() {
         setForm({
             id: record.id,
 
-            employeeId:
-                record.employee_id,
+            employeeIds: [record.employee_id],
 
             overtimeDate:
                 record.overtime_date,
@@ -507,10 +503,8 @@ export default function Overtime() {
 
         if (!form) return
 
-        if (!form.employeeId) {
-            setError(
-                'Vui lòng chọn nhân viên.',
-            )
+        if (form.employeeIds.length === 0) {
+            setError('Vui lòng chọn ít nhất một nhân viên.')
             return
         }
 
@@ -552,81 +546,47 @@ export default function Overtime() {
         setError(null)
 
         try {
-            const payload = {
-                employee_id:
-                    form.employeeId,
-
-                overtime_date:
-                    form.overtimeDate,
-
-                overtime_end_time:
-                    form.endTime,
-
-                note:
-                    form.note.trim() ||
-                    'Tăng ca',
+            const basePayload = {
+                overtime_date: form.overtimeDate,
+                overtime_end_time: form.endTime,
+                note: form.note.trim() || 'Tăng ca',
             }
 
             if (form.id) {
-                const {
-                    error:
-                        updateError,
-                } = await supabase
-                    .from(
-                        'overtime_records',
-                    )
-                    .update(
-                        payload,
-                    )
-                    .eq(
-                        'id',
-                        form.id,
-                    )
+                const {error: updateError} = await supabase
+                    .from('overtime_records')
+                    .update({
+                        employee_id: form.employeeIds[0],
+                        ...basePayload,
+                    })
+                    .eq('id', form.id)
 
                 if (updateError) {
-                    if (
-                        updateError.code ===
-                        '23505'
-                    ) {
-                        throw new Error(
-                            'Nhân viên đã có bản tăng ca trong ngày này.',
-                        )
+                    if (updateError.code === '23505') {
+                        throw new Error('Nhân viên đã có bản tăng ca trong ngày này.')
                     }
-
                     throw updateError
                 }
 
-                setSuccess(
-                    'Đã cập nhật bản tăng ca.',
-                )
+                setSuccess('Đã cập nhật bản tăng ca.')
             } else {
-                const {
-                    error:
-                        insertError,
-                } = await supabase
-                    .from(
-                        'overtime_records',
-                    )
-                    .insert(
-                        payload,
-                    )
+                const rows = form.employeeIds.map((employeeId) => ({
+                    employee_id: employeeId,
+                    ...basePayload,
+                }))
+
+                const {error: insertError} = await supabase
+                    .from('overtime_records')
+                    .insert(rows)
 
                 if (insertError) {
-                    if (
-                        insertError.code ===
-                        '23505'
-                    ) {
-                        throw new Error(
-                            'Nhân viên đã có bản tăng ca trong ngày này.',
-                        )
+                    if (insertError.code === '23505') {
+                        throw new Error('Một hoặc nhiều nhân viên đã có bản tăng ca trong ngày này. Vui lòng kiểm tra lại danh sách.')
                     }
-
                     throw insertError
                 }
 
-                setSuccess(
-                    'Đã thêm bản tăng ca.',
-                )
+                setSuccess(`Đã thêm tăng ca cho ${form.employeeIds.length} nhân viên.`)
             }
 
             setForm(null)
@@ -881,12 +841,24 @@ export default function Overtime() {
                             </thead>
 
                             <tbody>
-                                {filteredRecords.map(
-                                    (record) => (
+                                {Array.from(
+                                    filteredRecords.reduce((groups, record) => {
+                                        const list = groups.get(record.overtime_date) ?? []
+                                        list.push(record)
+                                        groups.set(record.overtime_date, list)
+                                        return groups
+                                    }, new Map<string, OvertimeRecord[]>()).entries(),
+                                ).map(([date, dateRecords]) => (
+                                    <Fragment key={date}>
+                                        <tr className="border-b border-slate-200 bg-slate-50">
+                                            <td colSpan={7} className="px-5 py-3">
+                                                <span className="font-bold text-slate-900">Ngày {formatDate(date)}</span>
+                                                <span className="ml-2 text-xs font-semibold text-slate-500">• {dateRecords.length} người tăng ca</span>
+                                            </td>
+                                        </tr>
+                                        {dateRecords.map((record) => (
                                         <tr
-                                            key={
-                                                record.id
-                                            }
+                                            key={record.id}
                                             className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
                                         >
                                             <td className="whitespace-nowrap px-5 py-4 font-semibold text-slate-700">
@@ -968,8 +940,9 @@ export default function Overtime() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ),
-                                )}
+                                        ))}
+                                    </Fragment>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -1043,40 +1016,73 @@ export default function Overtime() {
                             <div className="space-y-5 p-6">
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                        Nhân viên
+                                        Nhân viên {form.id ? '' : '(có thể chọn nhiều người)'}
                                     </label>
 
-                                    <select
-                                        value={
-                                            form.employeeId
-                                        }
-                                        onChange={(event) =>
-                                            setForm({
-                                                ...form,
-                                                employeeId:
-                                                    event.target.value,
-                                            })
-                                        }
-                                        className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                    >
-                                        {employees.map(
-                                            (employee) => (
-                                                <option
-                                                    key={
-                                                        employee.id
-                                                    }
-                                                    value={
-                                                        employee.id
-                                                    }
-                                                >
+                                    {form.id ? (
+                                        <select
+                                            value={form.employeeIds[0] ?? ''}
+                                            onChange={(event) =>
+                                                setForm({
+                                                    ...form,
+                                                    employeeIds: [event.target.value],
+                                                })
+                                            }
+                                            className="h-11 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                        >
+                                            {employees.map((employee) => (
+                                                <option key={employee.id} value={employee.id}>
                                                     {employee.employee_code} — {employee.full_name}
-                                                    {!employee.is_active
-                                                        ? ' (Đã ngưng)'
-                                                        : ''}
+                                                    {!employee.is_active ? ' (Đã ngưng)' : ''}
                                                 </option>
-                                            ),
-                                        )}
-                                    </select>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                                            <div className="mb-2 flex items-center justify-between px-2 py-1">
+                                                <span className="text-xs font-semibold text-slate-500">
+                                                    Đã chọn: {form.employeeIds.length} người
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setForm({
+                                                            ...form,
+                                                            employeeIds: employees.filter((employee) => employee.is_active).map((employee) => employee.id),
+                                                        })
+                                                    }
+                                                    className="cursor-pointer text-xs font-bold text-blue-600 hover:text-blue-800"
+                                                >
+                                                    Chọn tất cả
+                                                </button>
+                                            </div>
+                                            {employees.map((employee) => {
+                                                const checked = form.employeeIds.includes(employee.id)
+
+                                                return (
+                                                    <label key={employee.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() =>
+                                                                setForm({
+                                                                    ...form,
+                                                                    employeeIds: checked
+                                                                        ? form.employeeIds.filter((id) => id !== employee.id)
+                                                                        : [...form.employeeIds, employee.id],
+                                                                })
+                                                            }
+                                                            className="h-4 w-4 cursor-pointer rounded border-slate-300"
+                                                        />
+                                                        <span className="text-sm font-medium text-slate-700">
+                                                            {employee.employee_code} — {employee.full_name}
+                                                            {!employee.is_active ? ' (Đã ngưng)' : ''}
+                                                        </span>
+                                                    </label>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid gap-4 sm:grid-cols-2">

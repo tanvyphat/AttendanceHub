@@ -23,6 +23,7 @@ import {
     type EmployeeMonthlySummary,
     type ReportAttendance,
     type ReportEmployee,
+    type ReportOvertime,
 } from '../utils/attendanceReport'
 
 function getVietnamMonth() {
@@ -169,12 +170,9 @@ export default function Reports() {
         ReportEmployee[]
     >([])
 
-    const [
-        attendance,
-        setAttendance,
-    ] = useState<
-        ReportAttendance[]
-    >([])
+    const [attendance, setAttendance] = useState<ReportAttendance[]>([])
+
+    const [overtime, setOvertime] = useState<ReportOvertime[]>([])
 
     const [loading, setLoading] =
         useState(true)
@@ -341,6 +339,7 @@ export default function Reports() {
                     const [
                         employeesResult,
                         attendanceResult,
+                        overtimeResult,
                     ] =
                         await Promise.all([
                             supabase
@@ -385,6 +384,13 @@ export default function Reports() {
                                 .order(
                                     'work_date',
                                 ),
+
+                            supabase
+                                .from('overtime_records')
+                                .select('id, employee_id, overtime_date, overtime_end_time, overtime_base_time, overtime_minutes, note')
+                                .gte('overtime_date', startDate)
+                                .lte('overtime_date', endDate)
+                                .order('overtime_date'),
                         ])
 
                     if (
@@ -393,10 +399,12 @@ export default function Reports() {
                         throw employeesResult.error
                     }
 
-                    if (
-                        attendanceResult.error
-                    ) {
+                    if (attendanceResult.error) {
                         throw attendanceResult.error
+                    }
+
+                    if (overtimeResult.error) {
+                        throw overtimeResult.error
                     }
 
                     const allEmployees =
@@ -408,16 +416,14 @@ export default function Reports() {
                         >
 
                     const attendanceData =
-                        (attendanceResult.data ??
-                            []) as ReportAttendance[]
+                        (attendanceResult.data ?? []) as ReportAttendance[]
 
-                    setEmployees(
-                        allEmployees,
-                    )
+                    const overtimeData =
+                        (overtimeResult.data ?? []) as ReportOvertime[]
 
-                    setAttendance(
-                        attendanceData,
-                    )
+                    setEmployees(allEmployees)
+                    setAttendance(attendanceData)
+                    setOvertime(overtimeData)
                 } catch (err) {
                     console.error(err)
 
@@ -517,6 +523,7 @@ export default function Reports() {
                         ? selectedDates
                         : undefined,
                     periodLabel,
+                    overtime,
                 )
             } catch (err) {
                 console.error(

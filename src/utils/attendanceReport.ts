@@ -455,12 +455,56 @@ function applyTableBorders(
                 },
             }
 
+            cell.font = {
+                name: 'Times New Roman',
+                size: 12,
+            }
+
             cell.alignment = {
                 vertical: 'middle',
                 wrapText: true,
             }
         }
     }
+}
+
+function polishWorksheet(
+    worksheet: ExcelJS.Worksheet,
+    bodyStartRow: number,
+    bodyEndRow: number,
+    columnCount: number,
+) {
+    for (let rowNumber = bodyStartRow; rowNumber <= bodyEndRow; rowNumber += 1) {
+        const row = worksheet.getRow(rowNumber)
+        row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.font = {
+                name: 'Times New Roman',
+                size: 12,
+                ...(cell.font?.bold ? { bold: true } : {}),
+                ...(cell.font?.color ? { color: cell.font.color } : {}),
+            }
+            cell.alignment = {
+                vertical: 'middle',
+                wrapText: true,
+                ...(cell.alignment?.horizontal
+                    ? { horizontal: cell.alignment.horizontal }
+                    : {}),
+            }
+        })
+        row.height = Math.max(row.height ?? 15, 24)
+    }
+
+    worksheet.pageSetup = {
+        orientation: columnCount > 8 ? 'landscape' : 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        paperSize: 9,
+        horizontalDpi: 300,
+        verticalDpi: 300,
+    }
+
+    worksheet.properties.defaultRowHeight = 20
 }
 
 async function applyWorkbookDefaultFont(
@@ -751,10 +795,41 @@ export async function exportAttendanceExcel(
         ).numFmt = '0.0'
     }
 
+    for (let row = 5; row <= summaryEndRow; row += 1) {
+        const rowRef = summarySheet.getRow(row)
+        rowRef.height = 28
+
+        if (row % 2 === 0) {
+            rowRef.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF8FAFC' },
+                }
+            })
+        }
+
+        rowRef.getCell(1).alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+        }
+        rowRef.getCell(2).alignment = {
+            vertical: 'middle',
+        }
+        for (let column = 3; column <= 6; column += 1) {
+            rowRef.getCell(column).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+        }
+    }
+
     summarySheet.autoFilter = {
         from: 'A4',
         to: `F${summaryEndRow}`,
     }
+
+    summarySheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]
 
     // ========================================
     // SHEET 2 — BẢNG CHẤM CÔNG
@@ -843,7 +918,15 @@ export async function exportAttendanceExcel(
         matrixHeaderRow,
     )
 
-    matrixHeaderRow.height = 40
+    matrixHeaderRow.height = 32
+    matrixHeaderRow.eachCell((cell) => {
+        cell.font = {
+            name: 'Times New Roman',
+            bold: true,
+            size: 11,
+            color: { argb: 'FF0F172A' },
+        }
+    })
 
     const attendanceMap =
         new Map<
@@ -904,7 +987,19 @@ export async function exportAttendanceExcel(
                     0,
                 ])
 
-            row.height = 82
+            row.height = 92
+
+            if (index % 2 === 1) {
+                row.eachCell((cell) => {
+                    if (!cell.fill || cell.fill.type !== 'pattern') {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF8FAFC' },
+                        }
+                    }
+                })
+            }
 
             exportDates.forEach(
                 (date, dateIndex) => {
@@ -983,7 +1078,7 @@ export async function exportAttendanceExcel(
                                 {
                                     text: detailText === 'Chưa chấm'
                                         ? ''
-                                        : `${detailText}\\n`,
+                                        : `${detailText}\n`,
                                     font: {
                                         name: 'Times New Roman',
                                         size: 12,
@@ -1102,6 +1197,41 @@ export async function exportAttendanceExcel(
             lastDayColumn + 4,
         ).numFmt = '0.0'
     }
+
+    for (let row = 5; row <= matrixEndRow; row += 1) {
+        const rowRef = attendanceSheet.getRow(row)
+        rowRef.getCell(1).alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+        }
+        rowRef.getCell(2).alignment = {
+            vertical: 'middle',
+        }
+        rowRef.getCell(2).font = {
+            name: 'Times New Roman',
+            size: 12,
+            bold: true,
+        }
+
+        for (let column = firstDayColumn; column <= lastDayColumn; column += 1) {
+            rowRef.getCell(column).font = {
+                name: 'Times New Roman',
+                size: 11,
+            }
+        }
+    }
+
+    attendanceSheet.autoFilter = {
+        from: 'A4',
+        to: `${matrixLastColumn}${matrixEndRow}`,
+    }
+
+    attendanceSheet.views = [{
+        state: 'frozen',
+        xSplit: 2,
+        ySplit: 4,
+        showGridLines: false,
+    }]
 
     // ========================================
     // SHEET 3 — ĐI TRỄ & NGHỈ
@@ -1316,6 +1446,77 @@ export async function exportAttendanceExcel(
         detailSheet.rowCount >= 4
     ) {
         applyTableBorders(
+            detailSheet,
+            4,
+            detailSheet.rowCount,
+            detailHeaders.length,
+        )
+
+        for (let rowNumber = 5; rowNumber <= detailSheet.rowCount; rowNumber += 1) {
+            const row = detailSheet.getRow(rowNumber)
+            row.height = 28
+
+            if (rowNumber % 2 === 0) {
+                row.eachCell((cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF8FAFC' },
+                    }
+                })
+            }
+
+            row.getCell(1).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+            row.getCell(3).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+                wrapText: true,
+            }
+            row.getCell(4).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+            row.getCell(5).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+            row.getCell(6).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+            row.getCell(7).alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+            }
+        }
+
+        detailSheet.autoFilter = {
+            from: 'A4',
+            to: `H${detailSheet.rowCount}`,
+        }
+    }
+
+    detailSheet.sheetView.showGridLines = false
+
+    detailSheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]
+
+    polishWorksheet(
+        summarySheet,
+        4,
+        summaryEndRow,
+        summaryHeaders.length,
+    )
+    polishWorksheet(
+        attendanceSheet,
+        4,
+        matrixEndRow,
+        matrixHeaders.length,
+    )
+    if (detailSheet.rowCount >= 4) {
+        polishWorksheet(
             detailSheet,
             4,
             detailSheet.rowCount,

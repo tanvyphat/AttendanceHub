@@ -1103,7 +1103,8 @@ export default function AttendanceHistory() {
                                         </div>
                                     </div>
 
-                                    <div className="mb-5 rounded-2xl border border-red-100 bg-red-50/50 p-5">
+                                    <div className="space-y-5">
+                                    <div className="rounded-2xl border border-red-100 bg-red-50/50 p-5">
                                         <div className="mb-3 flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2">
                                                 <Timer size={17} className="text-red-600"/>
@@ -1194,6 +1195,7 @@ export default function AttendanceHistory() {
                                                 )}
                                             </div>
                                         )}
+                                    </div>
                                     </div>
                                 </div>
                             </article>

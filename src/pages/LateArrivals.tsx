@@ -1,5 +1,6 @@
 import {
     AlertTriangle,
+    ChevronDown,
     Clock3,
     Loader2,
     Search,
@@ -38,8 +39,8 @@ interface LateSummary {
     fullName: string
     lateCount: number
     totalMinutes: number
-    averageMinutes: number
     maxMinutes: number
+    records: LateRecord[]
 }
 
 function getVietnamMonth() {
@@ -120,6 +121,9 @@ export default function LateArrivals() {
 
     const [loading, setLoading] =
         useState(true)
+
+    const [expandedEmployees, setExpandedEmployees] =
+        useState<Set<string>>(new Set())
 
     const [error, setError] =
         useState<string | null>(null)
@@ -322,19 +326,15 @@ export default function LateArrivals() {
 
                             totalMinutes,
 
-                            averageMinutes:
-                                data.minutes.length
-                                    ? Math.round(
-                                          totalMinutes /
-                                              data.minutes.length,
-                                      )
-                                    : 0,
-
                             maxMinutes:
                                 Math.max(
                                     0,
                                     ...data.minutes,
                                 ),
+
+                            records: filteredRecords
+                                .filter((record) => record.employee_id === employeeId)
+                                .sort((a, b) => b.work_date.localeCompare(a.work_date)),
                         }
                     },
                 )
@@ -352,6 +352,32 @@ export default function LateArrivals() {
             filteredRecords,
             lateAfterTime,
         ])
+
+    const dateGroups = useMemo(() => {
+        const grouped = new Map<string, LateRecord[]>()
+
+        filteredRecords.forEach((record) => {
+            const current = grouped.get(record.work_date) ?? []
+            current.push(record)
+            grouped.set(record.work_date, current)
+        })
+
+        return Array.from(grouped.entries()).sort(([a], [b]) =>
+            b.localeCompare(a),
+        )
+    }, [filteredRecords])
+
+    const toggleEmployee = (employeeId: string) => {
+        setExpandedEmployees((current) => {
+            const next = new Set(current)
+            if (next.has(employeeId)) {
+                next.delete(employeeId)
+            } else {
+                next.add(employeeId)
+            }
+            return next
+        })
+    }
 
     const overall =
         useMemo(() => {
@@ -627,10 +653,6 @@ export default function LateArrivals() {
                                             </th>
 
                                             <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                                TB / lần
-                                            </th>
-
-                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
                                                 Lần trễ lâu nhất
                                             </th>
                                         </tr>
@@ -683,19 +705,32 @@ export default function LateArrivals() {
                                                     </td>
 
                                                     <td className="px-5 py-4 text-center font-semibold text-slate-700">
-                                                        {
-                                                            item.averageMinutes
-                                                        }{' '}
-                                                        phút
-                                                    </td>
-
-                                                    <td className="px-5 py-4 text-center font-semibold text-slate-700">
-                                                        {
-                                                            item.maxMinutes
-                                                        }{' '}
-                                                        phút
+                                                        {item.maxMinutes}{' '}phút
                                                     </td>
                                                 </tr>
+                                                {expandedEmployees.has(item.employeeId) && (
+                                                    <tr className="border-b border-slate-100 bg-slate-50/60">
+                                                        <td colSpan={5} className="px-5 py-4">
+                                                            <div className="rounded-xl border border-slate-200 bg-white">
+                                                                <div className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                                                    <span>Ngày</span>
+                                                                    <span>Giờ vào trễ</span>
+                                                                    <span>Số phút trễ</span>
+                                                                </div>
+                                                                {item.records.map((record) => {
+                                                                    const minutes = getLateMinutes(record.check_in, lateAfterTime)
+                                                                    return (
+                                                                        <div key={record.id} className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0">
+                                                                            <span className="text-sm font-semibold text-slate-700">{formatDate(record.work_date)}</span>
+                                                                            <span className="text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span>
+                                                                            <span className="text-sm font-bold text-red-600">+{minutes} phút</span>
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             ),
                                         )}
                                     </tbody>
@@ -709,140 +744,56 @@ export default function LateArrivals() {
                             <h2 className="font-bold text-slate-900">
                                 Chi tiết từng lần đi trễ
                             </h2>
-
                             <p className="mt-1 text-xs text-slate-400">
-                                {filteredRecords.length}{' '}
-                                bản ghi
+                                {filteredRecords.length} bản ghi · nhóm theo ngày
                             </p>
                         </div>
 
-                        {filteredRecords.length ===
-                        0 ? (
+                        {dateGroups.length === 0 ? (
                             <div className="px-6 py-16 text-center">
-                                <Clock3
-                                    size={42}
-                                    className="mx-auto text-slate-300"
-                                />
-
-                                <p className="mt-4 font-semibold text-slate-700">
-                                    Không có dữ liệu đi trễ
-                                </p>
+                                <Clock3 size={42} className="mx-auto text-slate-300"/>
+                                <p className="mt-4 font-semibold text-slate-700">Không có dữ liệu đi trễ</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[1050px]">
-                                    <thead className="bg-slate-50">
-                                        <tr className="border-b border-slate-200">
-                                            <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
-                                                Ngày
-                                            </th>
+                            <div className="divide-y divide-slate-100">
+                                {dateGroups.map(([date, dayRecords]) => (
+                                    <div key={date} className="p-5">
+                                        <div className="mb-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white">
+                                                    <Clock3 size={17}/>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-900">{formatDate(date)}</p>
+                                                    <p className="text-xs text-slate-400">{dayRecords.length} người đi trễ</p>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                            <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
-                                                Nhân viên
-                                            </th>
-
-                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                                Giờ vào
-                                            </th>
-
-                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                                Giờ về
-                                            </th>
-
-                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                                Mốc trễ
-                                            </th>
-
-                                            <th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">
-                                                Số phút trễ
-                                            </th>
-
-                                            <th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">
-                                                Ghi chú
-                                            </th>
-                                        </tr>
-                                    </thead>
-
-                                    <tbody>
-                                        {filteredRecords.map(
-                                            (record) => {
-                                                const minutes =
-                                                    getLateMinutes(
-                                                        record.check_in,
-                                                        lateAfterTime,
-                                                    )
-
+                                        <div className="overflow-hidden rounded-xl border border-slate-200">
+                                            <div className="grid grid-cols-[1.3fr_140px_140px_1fr] gap-4 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                                <span>Nhân viên</span>
+                                                <span>Giờ vào</span>
+                                                <span>Số phút trễ</span>
+                                                <span>Ghi chú</span>
+                                            </div>
+                                            {dayRecords.map((record) => {
+                                                const minutes = getLateMinutes(record.check_in, lateAfterTime)
                                                 return (
-                                                    <tr
-                                                        key={
-                                                            record.id
-                                                        }
-                                                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                                                    >
-                                                        <td className="px-5 py-4 font-semibold text-slate-700">
-                                                            {formatDate(
-                                                                record.work_date,
-                                                            )}
-                                                        </td>
-
-                                                        <td className="px-5 py-4">
-                                                            <p className="font-semibold text-slate-900">
-                                                                {record
-                                                                    .employees
-                                                                    ?.full_name ??
-                                                                    'Không xác định'}
-                                                            </p>
-
-                                                            <p className="mt-1 text-xs text-slate-400">
-                                                                {record
-                                                                    .employees
-                                                                    ?.employee_code ??
-                                                                    '---'}
-                                                            </p>
-                                                        </td>
-
-                                                        <td className="px-5 py-4 text-center font-bold text-red-600">
-                                                            {record.check_in?.slice(
-                                                                0,
-                                                                5,
-                                                            ) ??
-                                                                '—'}
-                                                        </td>
-
-                                                        <td className="px-5 py-4 text-center font-semibold text-slate-700">
-                                                            {record.check_out?.slice(
-                                                                0,
-                                                                5,
-                                                            ) ??
-                                                                '—'}
-                                                        </td>
-
-                                                        <td className="px-5 py-4 text-center font-semibold text-slate-500">
-                                                            {
-                                                                lateAfterTime
-                                                            }
-                                                        </td>
-
-                                                        <td className="px-5 py-4 text-center">
-                                                            <span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
-                                                                +
-                                                                {
-                                                                    minutes
-                                                                }{' '}
-                                                                phút
-                                                            </span>
-                                                        </td>
-
-                                                        <td className="max-w-72 px-5 py-4 text-sm text-slate-500">
-                                                            {record.note ||
-                                                                '—'}
-                                                        </td>
-                                                    </tr>
+                                                    <div key={record.id} className="grid grid-cols-[1.3fr_140px_140px_1fr] gap-4 border-t border-slate-100 px-4 py-3">
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-slate-900">{record.employees?.full_name ?? 'Không xác định'}</p>
+                                                            <p className="mt-0.5 text-xs text-slate-400">{record.employees?.employee_code ?? '---'}</p>
+                                                        </div>
+                                                        <span className="self-center text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span>
+                                                        <span className="self-center"><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">+{minutes} phút</span></span>
+                                                        <span className="self-center text-sm text-slate-500">{record.note || '—'}</span>
+                                                    </div>
                                                 )
-                                            },
-                                        )}
-                                    </tbody>
-                                </table>
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </section>

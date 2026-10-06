@@ -1499,8 +1499,6 @@ export async function exportAttendanceExcel(
         }
     }
 
-    detailSheet.sheetView.showGridLines = false
-
     detailSheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]
 
     polishWorksheet(

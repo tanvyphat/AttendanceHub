@@ -42,6 +42,20 @@ interface AttendanceRecord {
     is_late: boolean
 }
 
+interface OvertimeRecord {
+    employee_id: string
+    overtime_date: string
+    overtime_end_time: string
+    overtime_minutes: number
+}
+
+interface OvertimePerson {
+    employeeId: string
+    name: string
+    minutes: number
+    endTime: string
+}
+
 interface AbsentPerson {
     employeeId: string
     name: string
@@ -53,6 +67,7 @@ interface DaySummary {
     late: number
     absent: number
     absentPeople: AbsentPerson[]
+    overtimePeople: OvertimePerson[]
 }
 
 function getVietnamDate() {
@@ -157,6 +172,7 @@ const emptyDaySummary: DaySummary = {
     late: 0,
     absent: 0,
     absentPeople: [],
+    overtimePeople: [],
 }
 
 export default function Dashboard() {
@@ -195,6 +211,7 @@ export default function Dashboard() {
                 const [
                     employeesResult,
                     attendanceResult,
+                    overtimeResult,
                 ] = await Promise.all([
                     supabase
                         .from('employees')
@@ -221,6 +238,13 @@ export default function Dashboard() {
                             'work_date',
                             monthInfo.endDate,
                         ),
+
+                    supabase
+                        .from('overtime_records')
+                        .select('employee_id, overtime_date, overtime_end_time, overtime_minutes')
+                        .gte('overtime_date', monthInfo.startDate)
+                        .lte('overtime_date', monthInfo.endDate)
+                        .order('overtime_date'),
                 ])
 
                 if (employeesResult.error) {
@@ -231,9 +255,16 @@ export default function Dashboard() {
                     throw attendanceResult.error
                 }
 
+                if (overtimeResult.error) {
+                    throw overtimeResult.error
+                }
+
                 const employees =
                     (employeesResult.data ??
                         []) as Employee[]
+
+                const overtime: OvertimeRecord[] =
+                    (overtimeResult.data ?? []) as OvertimeRecord[]
 
                 const attendance: AttendanceRecord[] =
                     (
@@ -272,12 +303,31 @@ export default function Dashboard() {
                     {
                         presentIds: Set<string>
                         lateIds: Set<string>
-                        absentPeople: Map<
-                            string,
-                            AbsentPerson
-                        >
+                        absentPeople: Map<string, AbsentPerson>
+                        overtimePeople: Map<string, OvertimePerson>
                     }
                 > = {}
+
+                overtime.forEach((record) => {
+                    if (!grouped[record.overtime_date]) {
+                        grouped[record.overtime_date] = {
+                            presentIds: new Set<string>(),
+                            lateIds: new Set<string>(),
+                            absentPeople: new Map<string, AbsentPerson>(),
+                            overtimePeople: new Map<string, OvertimePerson>(),
+                        }
+                    }
+
+                    grouped[record.overtime_date].overtimePeople.set(
+                        record.employee_id,
+                        {
+                            employeeId: record.employee_id,
+                            name: employeeNames.get(record.employee_id) ?? 'Nhân viên',
+                            minutes: record.overtime_minutes,
+                            endTime: record.overtime_end_time.slice(0, 5),
+                        },
+                    )
+                })
 
                 attendance.forEach((record) => {
                     if (!grouped[record.work_date]) {
@@ -287,10 +337,9 @@ export default function Dashboard() {
                             lateIds:
                                 new Set<string>(),
                             absentPeople:
-                                new Map<
-                                    string,
-                                    AbsentPerson
-                                >(),
+                                new Map<string, AbsentPerson>(),
+                            overtimePeople:
+                                new Map<string, OvertimePerson>(),
                         }
                     }
 
@@ -360,14 +409,12 @@ export default function Dashboard() {
                                             .absentPeople
                                             .size,
                                     absentPeople:
-                                        Array.from(
-                                            day.absentPeople.values(),
-                                        ).sort(
-                                            (a, b) =>
-                                                a.name.localeCompare(
-                                                    b.name,
-                                                    'vi',
-                                                ),
+                                        Array.from(day.absentPeople.values()).sort(
+                                            (a, b) => a.name.localeCompare(b.name, 'vi'),
+                                        ),
+                                    overtimePeople:
+                                        Array.from(day.overtimePeople.values()).sort(
+                                            (a, b) => a.name.localeCompare(b.name, 'vi'),
                                         ),
                                 } satisfies DaySummary,
                             ],
@@ -707,6 +754,47 @@ export default function Dashboard() {
                                                                 {summary.absent}
                                                             </p>
                                                         </div>
+                                                    </div>
+
+                                                    <div className="mt-3 border-t border-slate-100 pt-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-xs font-bold text-red-600">
+                                                                Tăng ca
+                                                            </p>
+                                                            <span className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                                                {summary.overtimePeople.length} người
+                                                            </span>
+                                                        </div>
+
+                                                        {summary.overtimePeople.length > 0 ? (
+                                                            <div className="mt-2 space-y-1.5">
+                                                                {summary.overtimePeople.map((person) => {
+                                                                    const hours = Math.floor(person.minutes / 60)
+                                                                    const minutes = person.minutes % 60
+                                                                    const duration = hours > 0
+                                                                        ? minutes > 0 ? `${hours}h ${minutes}p` : `${hours}h`
+                                                                        : `${minutes}p`
+
+                                                                    return (
+                                                                        <div
+                                                                            key={person.employeeId}
+                                                                            className="flex items-center justify-between gap-3 rounded-lg bg-red-50 px-2.5 py-2"
+                                                                        >
+                                                                            <span className="text-xs font-semibold text-red-700">
+                                                                                {person.name}
+                                                                            </span>
+                                                                            <span className="shrink-0 text-[10px] font-bold text-red-600">
+                                                                                {duration} · về {person.endTime}
+                                                                            </span>
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="mt-2 text-xs text-slate-400">
+                                                                Không có nhân viên tăng ca.
+                                                            </p>
+                                                        )}
                                                     </div>
 
                                                     <div className="mt-3 border-t border-slate-100 pt-3">

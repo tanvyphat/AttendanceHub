@@ -1303,178 +1303,45 @@ export async function exportAttendanceExcel(
         ),
     )
 
+    // Sau khi tạo xong toàn bộ dòng dữ liệu, xác định các nhóm ngày
+    // trực tiếp từ giá trị thực tế trong cột A. Cách này tránh merge nhầm
+    // header hoặc kéo một ngày sang nhóm ngày kế tiếp.
     const detailDateRanges: Array<{
         date: string
         startRow: number
         endRow: number
     }> = []
 
-    let currentDetailDate = ''
-    let currentDetailStartRow = 0
+    let rangeStart = 5
+    let rangeDate =
+        detailSheet.getCell(rangeStart, 1).value?.toString() ?? ''
 
-    const trackDetailDateRow = (date: string) => {
-        const rowNumber = detailSheet.rowCount
+    for (
+        let rowNumber = 6;
+        rowNumber <= detailSheet.rowCount + 1;
+        rowNumber += 1
+    ) {
+        const nextDate =
+            rowNumber <= detailSheet.rowCount
+                ? detailSheet.getCell(rowNumber, 1).value?.toString() ?? ''
+                : ''
 
-        if (currentDetailDate !== date) {
-            if (currentDetailDate && currentDetailStartRow < rowNumber - 1) {
+        if (nextDate !== rangeDate) {
+            if (rangeDate) {
                 detailDateRanges.push({
-                    date: currentDetailDate,
-                    startRow: currentDetailStartRow,
+                    date: rangeDate,
+                    startRow: rangeStart,
                     endRow: rowNumber - 1,
                 })
             }
 
-            currentDetailDate = date
-            currentDetailStartRow = rowNumber
+            rangeStart = rowNumber
+            rangeDate = nextDate
         }
     }
 
-    for (
-        const record of sortedAttendance
-        ) {
-        const employee =
-            employeeMap.get(
-                record.employee_id,
-            )
-
-        if (!employee) continue
-
-        if (record.is_late) {
-            trackDetailDateRow(record.work_date)
-
-            detailSheet.addRow([
-                record.work_date,
-
-                employee.full_name,
-
-                'Đi trễ',
-
-                'Sáng',
-
-                record.check_in?.slice(
-                    0,
-                    5,
-                ) ?? '',
-
-                record.check_out?.slice(
-                    0,
-                    5,
-                ) ?? '',
-
-                getLateMinutes(
-                    record,
-                    lateAfterTime,
-                ),
-
-                record.note ?? '',
-            ])
-        }
-
-        const morningLeave =
-            record.morning_status ===
-            'approved_leave' ||
-            record.morning_status ===
-            'unapproved_leave'
-
-        const afternoonLeave =
-            record.afternoon_status ===
-            'approved_leave' ||
-            record.afternoon_status ===
-            'unapproved_leave'
-
-        if (
-            morningLeave &&
-            afternoonLeave &&
-            record.morning_status ===
-            record.afternoon_status
-        ) {
-            trackDetailDateRow(record.work_date)
-
-            detailSheet.addRow([
-                record.work_date,
-
-                employee.full_name,
-
-                record.morning_status ===
-                'approved_leave'
-                    ? 'Nghỉ có phép'
-                    : 'Nghỉ không phép',
-
-                'Cả ngày',
-
-                '',
-
-                '',
-
-                '',
-
-                record.note ?? '',
-            ])
-
-            continue
-        }
-
-        if (morningLeave) {
-            trackDetailDateRow(record.work_date)
-
-            detailSheet.addRow([
-                record.work_date,
-
-                employee.full_name,
-
-                record.morning_status ===
-                'approved_leave'
-                    ? 'Nghỉ có phép'
-                    : 'Nghỉ không phép',
-
-                'Sáng',
-
-                '',
-
-                '',
-
-                '',
-
-                record.note ?? '',
-            ])
-        }
-
-        if (afternoonLeave) {
-            trackDetailDateRow(record.work_date)
-
-            detailSheet.addRow([
-                record.work_date,
-
-                employee.full_name,
-
-                record.afternoon_status ===
-                'approved_leave'
-                    ? 'Nghỉ có phép'
-                    : 'Nghỉ không phép',
-
-                'Chiều',
-
-                '',
-
-                '',
-
-                '',
-
-                record.note ?? '',
-            ])
-        }
-    }
-
-    if (currentDetailDate && currentDetailStartRow <= detailSheet.rowCount) {
-        detailDateRanges.push({
-            date: currentDetailDate,
-            startRow: currentDetailStartRow,
-            endRow: detailSheet.rowCount,
-        })
-    }
-
-    // Gộp các ô Ngày liên tiếp có cùng ngày để báo cáo dễ đọc hơn.
-    // Mỗi ngày chỉ hiển thị một lần, căn giữa theo chiều dọc.
+    // Chỉ merge nhóm có từ 2 dòng trở lên. Nhóm 1 dòng giữ nguyên
+    // để tránh tạo merged cell không cần thiết.
     detailDateRanges.forEach(({ startRow, endRow }) => {
         if (endRow <= startRow) return
 

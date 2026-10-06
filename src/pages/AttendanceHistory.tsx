@@ -5,8 +5,7 @@ import {
     Edit3,
     Loader2,
     Save,
-    UserCheck,
-    Users,
+    Timer,
     X,
 } from 'lucide-react'
 import {
@@ -60,10 +59,26 @@ interface EditRow {
     note: string
 }
 
+interface OvertimeRecord {
+    id: string
+    employee_id: string
+    overtime_date: string
+    overtime_end_time: string
+    overtime_minutes: number
+    note: string | null
+}
+
 interface DailySheet {
     workDate: string
     records: AttendanceRecord[]
     workingCount: number
+    overtimePeople: {
+        employeeId: string
+        employeeName: string
+        employeeCode: string
+        minutes: number
+        endTime: string
+    }[]
     leavePeople: {
         employeeId: string
         employeeName: string
@@ -263,12 +278,9 @@ export default function AttendanceHistory() {
         setSpecificDate,
     ] = useState('')
 
-    const [
-        records,
-        setRecords,
-    ] = useState<
-        AttendanceRecord[]
-    >([])
+    const [records, setRecords] = useState<AttendanceRecord[]>([])
+    
+    const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
 
     const [
         employees,
@@ -343,6 +355,7 @@ export default function AttendanceHistory() {
                     historyResult,
                     employeeResult,
                     settingsResult,
+                    overtimeResult,
                 ] =
                     await Promise.all([
                         supabase
@@ -405,6 +418,13 @@ export default function AttendanceHistory() {
                                 1,
                             )
                             .maybeSingle(),
+
+                        supabase
+                            .from('overtime_records')
+                            .select('id, employee_id, overtime_date, overtime_end_time, overtime_minutes, note')
+                            .gte('overtime_date', startDate)
+                            .lte('overtime_date', endDate)
+                            .order('overtime_date'),
                     ])
 
                 if (
@@ -419,10 +439,12 @@ export default function AttendanceHistory() {
                     throw employeeResult.error
                 }
 
-                if (
-                    settingsResult.error
-                ) {
+                if (settingsResult.error) {
                     throw settingsResult.error
+                }
+
+                if (overtimeResult.error) {
+                    throw overtimeResult.error
                 }
 
                 setRecords(
@@ -431,8 +453,11 @@ export default function AttendanceHistory() {
                 )
 
                 setEmployees(
-                    (employeeResult.data ??
-                        []) as Employee[],
+                    (employeeResult.data ?? []) as Employee[],
+                )
+
+                setOvertimeRecords(
+                    (overtimeResult.data ?? []) as OvertimeRecord[],
                 )
 
                 if (
@@ -551,11 +576,29 @@ export default function AttendanceHistory() {
                                 },
                             )
 
+                        const overtimePeople =
+                            overtimeRecords
+                                .filter((record) => record.overtime_date === workDate)
+                                .map((record) => {
+                                    const employee = employees.find(
+                                        (item) => item.id === record.employee_id,
+                                    )
+
+                                    return {
+                                        employeeId: record.employee_id,
+                                        employeeName: employee?.full_name ?? 'Không xác định',
+                                        employeeCode: employee?.employee_code ?? '---',
+                                        minutes: record.overtime_minutes,
+                                        endTime: record.overtime_end_time.slice(0, 5),
+                                    }
+                                })
+                                .sort((a, b) => a.employeeName.localeCompare(b.employeeName, 'vi'))
+
                         return {
                             workDate,
-                            records:
-                                dayRecords,
+                            records: dayRecords,
                             workingCount,
+                            overtimePeople,
                             leavePeople,
                         }
                     },
@@ -568,42 +611,17 @@ export default function AttendanceHistory() {
                 )
         }, [
             records,
+            overtimeRecords,
+            employees,
             specificDate,
         ])
 
-    const monthSummary =
-        useMemo(() => {
-            const working =
-                dailySheets.reduce(
-                    (
-                        total,
-                        sheet,
-                    ) =>
-                        total +
-                        sheet.workingCount,
-                    0,
-                )
-
-            const leave =
-                dailySheets.reduce(
-                    (
-                        total,
-                        sheet,
-                    ) =>
-                        total +
-                        sheet
-                            .leavePeople
-                            .length,
-                    0,
-                )
-
-            return {
-                sheets:
-                    dailySheets.length,
-                working,
-                leave,
-            }
-        }, [dailySheets])
+    const monthSummary = useMemo(
+        () => ({
+            sheets: dailySheets.length,
+        }),
+        [dailySheets],
+    )
 
     const openEditSheet =
         async (
@@ -975,40 +993,12 @@ export default function AttendanceHistory() {
                 )}
             </section>
 
-            <section className="mb-6 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <section className="mb-6">
+                <div className="w-full rounded-2xl border border-slate-200 bg-white p-5">
                     <CalendarDays className="mb-4 text-slate-500"/>
-
-                    <p className="text-sm text-slate-500">
-                        Số phiếu
-                    </p>
-
+                    <p className="text-sm text-slate-500">Số phiếu</p>
                     <p className="mt-1 text-3xl font-bold text-slate-950">
                         {monthSummary.sheets}
-                    </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                    <UserCheck className="mb-4 text-emerald-600"/>
-
-                    <p className="text-sm text-slate-500">
-                        Tổng lượt có đi làm
-                    </p>
-
-                    <p className="mt-1 text-3xl font-bold text-slate-950">
-                        {monthSummary.working}
-                    </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                    <Users className="mb-4 text-red-500"/>
-
-                    <p className="text-sm text-slate-500">
-                        Tổng lượt có nghỉ
-                    </p>
-
-                    <p className="mt-1 text-3xl font-bold text-slate-950">
-                        {monthSummary.leave}
                     </p>
                 </div>
             </section>
@@ -1111,6 +1101,44 @@ export default function AttendanceHistory() {
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div className="mb-5 rounded-2xl border border-red-100 bg-red-50/50 p-5">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <Timer size={17} className="text-red-600"/>
+                                                <h3 className="text-sm font-bold text-red-700">Nhân viên tăng ca</h3>
+                                            </div>
+                                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-600">
+                                                {sheet.overtimePeople.length} người
+                                            </span>
+                                        </div>
+                                        {sheet.overtimePeople.length === 0 ? (
+                                            <div className="rounded-xl border border-dashed border-red-200 bg-white px-4 py-4 text-sm text-slate-400">
+                                                Không có nhân viên tăng ca trong ngày này.
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-2 md:grid-cols-2">
+                                                {sheet.overtimePeople.map((person) => {
+                                                    const hours = Math.floor(person.minutes / 60)
+                                                    const minutes = person.minutes % 60
+                                                    const duration = hours > 0
+                                                        ? minutes > 0 ? `${hours} giờ ${minutes} phút` : `${hours} giờ`
+                                                        : `${minutes} phút`
+                                                    return (
+                                                        <div key={person.employeeId} className="flex items-center justify-between gap-3 rounded-xl border border-red-100 bg-white px-4 py-3">
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-semibold text-slate-900">{person.employeeName}</p>
+                                                                <p className="mt-0.5 text-xs text-slate-400">{person.employeeCode}</p>
+                                                            </div>
+                                                            <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
+                                                                +{duration} · về {person.endTime}
+                                                            </span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div>

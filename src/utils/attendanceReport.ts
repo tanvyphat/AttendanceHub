@@ -912,21 +912,21 @@ export async function exportAttendanceExcel(
                         )
 
                     const hasUnapprovedLeave =
-                        record.morning_status ===
+                        record?.morning_status ===
                             'unapproved_leave' ||
-                        record.afternoon_status ===
+                        record?.afternoon_status ===
                             'unapproved_leave'
 
                     const hasApprovedLeave =
-                        record.morning_status ===
+                        record?.morning_status ===
                             'approved_leave' ||
-                        record.afternoon_status ===
+                        record?.afternoon_status ===
                             'approved_leave'
 
                     const hasPresent =
-                        record.morning_status ===
+                        record?.morning_status ===
                             'present' ||
-                        record.afternoon_status ===
+                        record?.afternoon_status ===
                             'present'
 
                     const fillColor =

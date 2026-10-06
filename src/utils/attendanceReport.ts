@@ -1307,73 +1307,218 @@ export async function exportAttendanceExcel(
 
     const sortedAttendance = [
         ...filteredAttendance,
-    ].sort((a, b) =>
-        a.work_date.localeCompare(
-            b.work_date,
-        ),
-    )
+    ].sort((a, b) => {
+        const dateCompare = a.work_date.localeCompare(b.work_date)
 
-    // Sau khi tạo xong toàn bộ dòng dữ liệu, xác định các nhóm ngày
-    // trực tiếp từ giá trị thực tế trong cột A. Cách này tránh merge nhầm
-    // header hoặc kéo một ngày sang nhóm ngày kế tiếp.
+        if (dateCompare !== 0) {
+            return dateCompare
+        }
+
+        const employeeA =
+            employeeMap.get(a.employee_id)?.full_name ?? ''
+        const employeeB =
+            employeeMap.get(b.employee_id)?.full_name ?? ''
+
+        return employeeA.localeCompare(employeeB)
+    })
+
+    // Tạo dữ liệu chi tiết trước, sau đó merge chính xác theo từng nhóm ngày.
+    // Mỗi dòng đều có ngày thật để không bao giờ làm mất ngày kế tiếp.
     const detailDateRanges: Array<{
         date: string
         startRow: number
         endRow: number
     }> = []
 
-    let rangeStart = 5
-    let rangeDate =
-        detailSheet.getCell(rangeStart, 1).value?.toString() ?? ''
+    let currentDate = ''
+    let currentStartRow = 0
 
-    for (
-        let rowNumber = 6;
-        rowNumber <= detailSheet.rowCount + 1;
-        rowNumber += 1
-    ) {
-        const nextDate =
-            rowNumber <= detailSheet.rowCount
-                ? detailSheet.getCell(rowNumber, 1).value?.toString() ?? ''
-                : ''
+    const addDetailRow = (
+        record: ReportAttendance,
+        type: 'late' | 'leave',
+        period: string,
+        leaveStatus?: AttendanceStatus,
+    ) => {
+        const employee =
+            employeeMap.get(record.employee_id)
 
-        if (nextDate !== rangeDate) {
-            if (rangeDate) {
+        if (!employee) return
+
+        const displayDate =
+            formatReportDate(record.work_date)
+
+        if (currentDate !== displayDate) {
+            if (currentDate && currentStartRow > 0) {
                 detailDateRanges.push({
-                    date: rangeDate,
-                    startRow: rangeStart,
-                    endRow: rowNumber - 1,
+                    date: currentDate,
+                    startRow: currentStartRow,
+                    endRow: detailSheet.rowCount,
                 })
             }
 
-            rangeStart = rowNumber
-            rangeDate = nextDate
+            currentDate = displayDate
+            currentStartRow =
+                detailSheet.rowCount + 1
         }
-    }
 
-    // Chỉ merge nhóm có từ 2 dòng trở lên. Nhóm 1 dòng giữ nguyên
-    // để tránh tạo merged cell không cần thiết.
-    detailDateRanges.forEach(({ startRow, endRow }) => {
-        if (endRow <= startRow) return
+        const lateMinutes =
+            type === 'late'
+                ? getLateMinutes(
+                    record,
+                    lateAfterTime,
+                )
+                : null
 
-        detailSheet.mergeCells(startRow, 1, endRow, 1)
+        const row =
+            detailSheet.addRow([
+                displayDate,
+                employee.full_name,
+                type === 'late'
+                    ? 'Đi trễ'
+                    : leaveStatus === 'unapproved_leave'
+                      ? 'Nghỉ không phép'
+                      : 'Nghỉ có phép',
+                period,
+                record.check_in
+                    ? record.check_in.slice(0, 5)
+                    : '',
+                record.check_out
+                    ? record.check_out.slice(0, 5)
+                    : '',
+                lateMinutes && lateMinutes > 0
+                    ? lateMinutes
+                    : '',
+                record.note?.trim() ?? '',
+            ])
 
-        const dateCell = detailSheet.getCell(startRow, 1)
-        dateCell.alignment = {
-            horizontal: 'center',
-            vertical: 'middle',
-            wrapText: true,
-        }
-        dateCell.font = {
+        row.eachCell((cell) => {
+            cell.font = {
+                name: 'Times New Roman',
+                size: 12,
+            }
+            cell.alignment = {
+                vertical: 'middle',
+                wrapText: true,
+            }
+        })
+
+        row.getCell(3).font = {
             name: 'Times New Roman',
             size: 12,
             bold: true,
+            color: {
+                argb:
+                    type === 'late'
+                        ? 'FFB45309'
+                        : leaveStatus ===
+                            'unapproved_leave'
+                          ? 'FFDC2626'
+                          : 'FF2563EB',
+            },
         }
-        dateCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFF1F5F9' },
+    }
+
+    sortedAttendance.forEach((record) => {
+        const morningLeave =
+            record.morning_status ===
+                'approved_leave' ||
+            record.morning_status ===
+                'unapproved_leave'
+
+        const afternoonLeave =
+            record.afternoon_status ===
+                'approved_leave' ||
+            record.afternoon_status ===
+                'unapproved_leave'
+
+        if (record.is_late) {
+            addDetailRow(
+                record,
+                'late',
+                'Sáng',
+            )
+        }
+
+        if (
+            morningLeave &&
+            afternoonLeave &&
+            record.morning_status ===
+                record.afternoon_status
+        ) {
+            addDetailRow(
+                record,
+                'leave',
+                'Cả ngày',
+                record.morning_status,
+            )
+        } else {
+            if (morningLeave) {
+                addDetailRow(
+                    record,
+                    'leave',
+                    'Sáng',
+                    record.morning_status,
+                )
+            }
+
+            if (afternoonLeave) {
+                addDetailRow(
+                    record,
+                    'leave',
+                    'Chiều',
+                    record.afternoon_status,
+                )
+            }
         }
     })
+
+    if (currentDate && currentStartRow > 0) {
+        detailDateRanges.push({
+            date: currentDate,
+            startRow: currentStartRow,
+            endRow: detailSheet.rowCount,
+        })
+    }
+
+    // Chỉ merge đúng các dòng thuộc cùng một ngày.
+    detailDateRanges.forEach(
+        ({ startRow, endRow }) => {
+            if (endRow <= startRow) return
+
+            detailSheet.mergeCells(
+                startRow,
+                1,
+                endRow,
+                1,
+            )
+
+            const dateCell =
+                detailSheet.getCell(
+                    startRow,
+                    1,
+                )
+
+            dateCell.alignment = {
+                horizontal: 'center',
+                vertical: 'middle',
+                wrapText: true,
+            }
+
+            dateCell.font = {
+                name: 'Times New Roman',
+                size: 12,
+                bold: true,
+            }
+
+            dateCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: {
+                    argb: 'FFEFF6FF',
+                },
+            }
+        },
+    )
 
     detailSheet.columns = [
         {width: 14},

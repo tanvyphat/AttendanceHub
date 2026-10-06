@@ -13,6 +13,16 @@ export interface ReportEmployee {
     full_name: string
 }
 
+export interface ReportOvertime {
+    id: string
+    employee_id: string
+    overtime_date: string
+    overtime_end_time: string
+    overtime_base_time: string
+    overtime_minutes: number
+    note: string | null
+}
+
 export interface ReportAttendance {
     id: string
     employee_id: string
@@ -185,6 +195,7 @@ function timeToMinutes(
 function getLateMinutes(
     record: ReportAttendance | undefined,
     lateAfterTime: string,
+    overtime?: ReportOvertime,
 ) {
     if (!record?.is_late) {
         return 0
@@ -485,6 +496,7 @@ export async function exportAttendanceExcel(
     lateAfterTime = '07:35',
     selectedDates?: string[],
     periodLabel?: string,
+    overtime: ReportOvertime[] = [],
 ) {
     const workbook =
         new ExcelJS.Workbook()
@@ -550,6 +562,24 @@ export async function exportAttendanceExcel(
                     record.work_date,
                 ),
         )
+
+    const filteredOvertime =
+        overtime.filter(
+            (record) =>
+                exportDateSet.has(
+                    record.overtime_date,
+                ),
+        )
+
+    const overtimeMap =
+        new Map<string, ReportOvertime>()
+
+    filteredOvertime.forEach((record) => {
+        overtimeMap.set(
+            `${record.employee_id}_${record.overtime_date}`,
+            record,
+        )
+    })
 
     const summaries =
         buildMonthlySummaries(
@@ -836,6 +866,7 @@ export async function exportAttendanceExcel(
                         return getAttendanceDetails(
                             record,
                             lateAfterTime,
+                            overtimeMap.get(`${employee.id}_${date}`),
                         )
                     },
                 )
@@ -868,7 +899,12 @@ export async function exportAttendanceExcel(
                             `${employee.id}_${date}`,
                         )
 
-                    if (!record) return
+                    const overtimeRecord =
+                        overtimeMap.get(
+                            `${employee.id}_${date}`,
+                        )
+
+                    if (!record && !overtimeRecord) return
 
                     const cell =
                         row.getCell(
@@ -911,6 +947,44 @@ export async function exportAttendanceExcel(
                             fgColor: {
                                 argb: fillColor,
                             },
+                        }
+                    }
+
+                    if (overtimeRecord) {
+                        const detailText = getAttendanceDetails(
+                            record,
+                            lateAfterTime,
+                        )
+
+                        const hours = Math.floor(overtimeRecord.overtime_minutes / 60)
+                        const minutes = overtimeRecord.overtime_minutes % 60
+                        const duration = hours > 0
+                            ? minutes > 0
+                                ? `${hours} giờ ${minutes} phút`
+                                : `${hours} giờ`
+                            : `${minutes} phút`
+
+                        cell.value = {
+                            richText: [
+                                {
+                                    text: detailText === 'Chưa chấm'
+                                        ? ''
+                                        : `${detailText}\\n`,
+                                    font: {
+                                        name: 'Times New Roman',
+                                        size: 12,
+                                    },
+                                },
+                                {
+                                    text: `TĂNG CA: ${duration}`,
+                                    font: {
+                                        name: 'Times New Roman',
+                                        size: 12,
+                                        bold: true,
+                                        color: {argb: 'FFFF0000'},
+                                    },
+                                },
+                            ],
                         }
                     }
                 },

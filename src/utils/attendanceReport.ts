@@ -172,6 +172,16 @@ export function buildMonthlySummaries(
     })
 }
 
+function formatReportDate(value: string) {
+    const [year, month, day] = value.split('-')
+
+    if (!year || !month || !day) {
+        return value
+    }
+
+    return `${day}/${month}/${year}`
+}
+
 function timeToMinutes(
     value: string | null | undefined,
 ) {

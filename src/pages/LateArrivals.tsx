@@ -10,6 +10,7 @@ import {
     Users,
 } from 'lucide-react'
 import {
+    Fragment,
     useEffect,
     useMemo,
     useState,
@@ -660,77 +661,93 @@ export default function LateArrivals() {
 
                                     <tbody>
                                         {employeeSummaries.map(
-                                            (
-                                                item,
-                                                index,
-                                            ) => (
-                                                <tr
-                                                    key={
-                                                        item.employeeId
-                                                    }
-                                                    className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                                                >
-                                                    <td className="px-5 py-4 font-bold text-slate-400">
-                                                        {index +
-                                                            1}
-                                                    </td>
+                                            (item, index) => (
+                                                <Fragment key={item.employeeId}>
+                                                    <tr
+                                                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
+                                                    >
+                                                        <td className="px-5 py-4 font-bold text-slate-400">
+                                                            {index + 1}
+                                                        </td>
 
-                                                    <td className="px-5 py-4">
-                                                        <p className="font-semibold text-slate-900">
-                                                            {
-                                                                item.fullName
-                                                            }
-                                                        </p>
-
-                                                        <p className="mt-1 text-xs text-slate-400">
-                                                            {
-                                                                item.employeeCode
-                                                            }
-                                                        </p>
-                                                    </td>
-
-                                                    <td className="px-5 py-4 text-center">
-                                                        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-                                                            {
-                                                                item.lateCount
-                                                            }
-                                                        </span>
-                                                    </td>
-
-                                                    <td className="px-5 py-4 text-center font-bold text-red-600">
-                                                        {
-                                                            item.totalMinutes
-                                                        }{' '}
-                                                        phút
-                                                    </td>
-
-                                                    <td className="px-5 py-4 text-center font-semibold text-slate-700">
-                                                        {item.maxMinutes}{' '}phút
-                                                    </td>
-                                                </tr>
-                                                {expandedEmployees.has(item.employeeId) && (
-                                                    <tr className="border-b border-slate-100 bg-slate-50/60">
-                                                        <td colSpan={5} className="px-5 py-4">
-                                                            <div className="rounded-xl border border-slate-200 bg-white">
-                                                                <div className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                                                    <span>Ngày</span>
-                                                                    <span>Giờ vào trễ</span>
-                                                                    <span>Số phút trễ</span>
+                                                        <td className="px-5 py-4">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleEmployee(item.employeeId)}
+                                                                className="flex w-full cursor-pointer items-center justify-between gap-3 text-left"
+                                                            >
+                                                                <div>
+                                                                    <p className="font-semibold text-slate-900">
+                                                                        {item.fullName}
+                                                                    </p>
+                                                                    <p className="mt-1 text-xs text-slate-400">
+                                                                        {item.employeeCode}
+                                                                    </p>
                                                                 </div>
-                                                                {item.records.map((record) => {
-                                                                    const minutes = getLateMinutes(record.check_in, lateAfterTime)
-                                                                    return (
-                                                                        <div key={record.id} className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0">
-                                                                            <span className="text-sm font-semibold text-slate-700">{formatDate(record.work_date)}</span>
-                                                                            <span className="text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span>
-                                                                            <span className="text-sm font-bold text-red-600">+{minutes} phút</span>
-                                                                        </div>
-                                                                    )
-                                                                })}
-                                                            </div>
+                                                                <ChevronDown
+                                                                    size={17}
+                                                                    className={
+                                                                        expandedEmployees.has(item.employeeId)
+                                                                            ? 'shrink-0 rotate-180 text-slate-500 transition-transform'
+                                                                            : 'shrink-0 text-slate-400 transition-transform'
+                                                                    }
+                                                                />
+                                                            </button>
+                                                        </td>
+
+                                                        <td className="px-5 py-4 text-center">
+                                                            <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                                                                {item.lateCount}
+                                                            </span>
+                                                        </td>
+
+                                                        <td className="px-5 py-4 text-center font-bold text-red-600">
+                                                            {item.totalMinutes} phút
+                                                        </td>
+
+                                                        <td className="px-5 py-4 text-center font-semibold text-slate-700">
+                                                            {item.maxMinutes} phút
                                                         </td>
                                                     </tr>
-                                                )}
+
+                                                    {expandedEmployees.has(item.employeeId) && (
+                                                        <tr className="border-b border-slate-100 bg-slate-50/60">
+                                                            <td colSpan={5} className="px-5 py-4">
+                                                                <div className="rounded-xl border border-slate-200 bg-white">
+                                                                    <div className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                                                        <span>Ngày</span>
+                                                                        <span>Giờ vào trễ</span>
+                                                                        <span>Số phút trễ</span>
+                                                                    </div>
+
+                                                                    {item.records.map((record) => {
+                                                                        const minutes = getLateMinutes(
+                                                                            record.check_in,
+                                                                            lateAfterTime,
+                                                                        )
+
+                                                                        return (
+                                                                            <div
+                                                                                key={record.id}
+                                                                                className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0"
+                                                                            >
+                                                                                <span className="text-sm font-semibold text-slate-700">
+                                                                                    {formatDate(record.work_date)}
+                                                                                </span>
+                                                                                <span className="text-sm font-bold text-red-600">
+                                                                                    {record.check_in?.slice(0, 5) ?? '—'}
+                                                                                </span>
+                                                                                <span className="text-sm font-bold text-red-600">
+                                                                                    +{minutes} phút
+                                                                                </span>
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
                                             ),
                                         )}
                                     </tbody>

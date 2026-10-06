@@ -1303,6 +1303,32 @@ export async function exportAttendanceExcel(
         ),
     )
 
+    const detailDateRanges: Array<{
+        date: string
+        startRow: number
+        endRow: number
+    }> = []
+
+    let currentDetailDate = ''
+    let currentDetailStartRow = 0
+
+    const trackDetailDateRow = (date: string) => {
+        const rowNumber = detailSheet.rowCount
+
+        if (currentDetailDate !== date) {
+            if (currentDetailDate && currentDetailStartRow < rowNumber - 1) {
+                detailDateRanges.push({
+                    date: currentDetailDate,
+                    startRow: currentDetailStartRow,
+                    endRow: rowNumber - 1,
+                })
+            }
+
+            currentDetailDate = date
+            currentDetailStartRow = rowNumber
+        }
+    }
+
     for (
         const record of sortedAttendance
         ) {
@@ -1314,6 +1340,8 @@ export async function exportAttendanceExcel(
         if (!employee) continue
 
         if (record.is_late) {
+            trackDetailDateRow(record.work_date)
+
             detailSheet.addRow([
                 record.work_date,
 
@@ -1360,6 +1388,8 @@ export async function exportAttendanceExcel(
             record.morning_status ===
             record.afternoon_status
         ) {
+            trackDetailDateRow(record.work_date)
+
             detailSheet.addRow([
                 record.work_date,
 
@@ -1385,6 +1415,8 @@ export async function exportAttendanceExcel(
         }
 
         if (morningLeave) {
+            trackDetailDateRow(record.work_date)
+
             detailSheet.addRow([
                 record.work_date,
 
@@ -1408,6 +1440,8 @@ export async function exportAttendanceExcel(
         }
 
         if (afternoonLeave) {
+            trackDetailDateRow(record.work_date)
+
             detailSheet.addRow([
                 record.work_date,
 
@@ -1430,6 +1464,39 @@ export async function exportAttendanceExcel(
             ])
         }
     }
+
+    if (currentDetailDate && currentDetailStartRow <= detailSheet.rowCount) {
+        detailDateRanges.push({
+            date: currentDetailDate,
+            startRow: currentDetailStartRow,
+            endRow: detailSheet.rowCount,
+        })
+    }
+
+    // Gộp các ô Ngày liên tiếp có cùng ngày để báo cáo dễ đọc hơn.
+    // Mỗi ngày chỉ hiển thị một lần, căn giữa theo chiều dọc.
+    detailDateRanges.forEach(({ startRow, endRow }) => {
+        if (endRow <= startRow) return
+
+        detailSheet.mergeCells(startRow, 1, endRow, 1)
+
+        const dateCell = detailSheet.getCell(startRow, 1)
+        dateCell.alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+            wrapText: true,
+        }
+        dateCell.font = {
+            name: 'Times New Roman',
+            size: 12,
+            bold: true,
+        }
+        dateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF1F5F9' },
+        }
+    })
 
     detailSheet.columns = [
         {width: 14},
@@ -1493,10 +1560,8 @@ export async function exportAttendanceExcel(
             }
         }
 
-        detailSheet.autoFilter = {
-            from: 'A4',
-            to: `H${detailSheet.rowCount}`,
-        }
+        // Không bật AutoFilter trên vùng có ô Ngày được merge,
+        // vì Excel xử lý merged cells trong vùng lọc không ổn định.
     }
 
     detailSheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]

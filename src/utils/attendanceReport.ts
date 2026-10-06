@@ -195,7 +195,6 @@ function timeToMinutes(
 function getLateMinutes(
     record: ReportAttendance | undefined,
     lateAfterTime: string,
-    overtime?: ReportOvertime,
 ) {
     if (!record?.is_late) {
         return 0
@@ -237,6 +236,7 @@ function getStatusLabel(
 function getAttendanceDetails(
     record: ReportAttendance | undefined,
     lateAfterTime: string,
+    overtime?: ReportOvertime,
 ) {
     if (!record) {
         return 'Chưa chấm'
@@ -285,6 +285,20 @@ function getAttendanceDetails(
         lines.push(
             `Ghi chú: ${record.note.trim()}`,
         )
+    }
+
+
+    if (overtime) {
+        const hours = Math.floor(overtime.overtime_minutes / 60)
+        const minutes = overtime.overtime_minutes % 60
+        const duration =
+            hours > 0
+                ? minutes > 0
+                    ? `${hours} giờ ${minutes} phút`
+                    : `${hours} giờ`
+                : `${minutes} phút`
+
+        lines.push(`TĂNG CA: ${duration}`)
     }
 
     return lines.join('\n')
@@ -932,7 +946,7 @@ export async function exportAttendanceExcel(
                     const fillColor =
                         hasUnapprovedLeave
                             ? 'FFFEE2E2'
-                            : record.is_late
+                            : record?.is_late
                               ? 'FFFEF3C7'
                               : hasApprovedLeave
                                 ? 'FFDBEAFE'

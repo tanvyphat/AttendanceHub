@@ -590,7 +590,7 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="min-w-[760px]">
+                        <div className="overflow-x-auto rounded-xl"><div className="min-w-[760px]">
                             <div className="grid grid-cols-7 border-l border-t border-slate-200 bg-slate-50">
                                 {weekDays.map((day) => (
                                     <div
@@ -842,6 +842,7 @@ export default function Dashboard() {
                                 )}
                             </div>
                         </div>
+                    </div>
                     </section>
                 </>
             )}

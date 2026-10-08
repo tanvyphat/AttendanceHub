@@ -158,13 +158,13 @@ function formatDate(date: string) {
 }
 
 const weekDays = [
-    'Thứ 2',
-    'Thứ 3',
-    'Thứ 4',
-    'Thứ 5',
-    'Thứ 6',
-    'Thứ 7',
-    'CN',
+    {full: 'Thứ 2', short: 'T2'},
+    {full: 'Thứ 3', short: 'T3'},
+    {full: 'Thứ 4', short: 'T4'},
+    {full: 'Thứ 5', short: 'T5'},
+    {full: 'Thứ 6', short: 'T6'},
+    {full: 'Thứ 7', short: 'T7'},
+    {full: 'CN', short: 'CN'},
 ]
 
 const emptyDaySummary: DaySummary = {
@@ -590,14 +590,15 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto rounded-xl"><div className="min-w-[760px]">
+                        <div className="overflow-hidden rounded-xl">
                             <div className="grid grid-cols-7 border-l border-t border-slate-200 bg-slate-50">
                                 {weekDays.map((day) => (
                                     <div
-                                        key={day}
-                                        className="border-b border-r border-slate-200 px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wide text-slate-500"
+                                        key={day.full}
+                                        className="border-b border-r border-slate-200 px-1 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:px-3 sm:py-2.5 sm:text-xs"
                                     >
-                                        {day}
+                                        <span className="sm:hidden">{day.short}</span>
+                                        <span className="hidden sm:inline">{day.full}</span>
                                     </div>
                                 ))}
                             </div>
@@ -612,7 +613,7 @@ export default function Dashboard() {
                                             return (
                                                 <div
                                                     key={'empty-' + cellIndex}
-                                                    className="min-h-32 border-b border-r border-slate-200 bg-slate-50/50"
+                                                    className="min-h-24 border-b border-r border-slate-200 bg-slate-50/50 sm:min-h-32"
                                                 />
                                             )
                                         }
@@ -656,7 +657,7 @@ export default function Dashboard() {
                                                     )
                                                 }
                                                 className={
-                                                    'group relative min-h-32 cursor-pointer border-b border-r border-slate-200 p-3 text-left transition hover:z-30 hover:bg-slate-50 focus:z-30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-400 ' +
+                                                    'group relative min-h-24 cursor-pointer border-b border-r border-slate-200 p-1.5 text-left transition hover:z-30 hover:bg-slate-50 focus:z-30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-400 sm:min-h-32 sm:p-3 ' +
                                                     (isToday
                                                         ? 'bg-blue-50/60'
                                                         : 'bg-white')
@@ -681,24 +682,24 @@ export default function Dashboard() {
                                                     </span>
 
                                                     {isToday && (
-                                                        <span className="text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                                                        <span className="hidden text-[10px] font-bold uppercase tracking-wide text-blue-600 sm:inline">
                                                             Hôm nay
                                                         </span>
                                                     )}
                                                 </div>
 
-                                                <div className="mt-3 space-y-1.5">
-                                                    <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                                                        <span>Đi làm</span>
+                                                <div className="mt-1.5 space-y-1 sm:mt-3 sm:space-y-1.5">
+                                                    <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-1.5 py-1 text-[10px] font-semibold text-emerald-700 sm:px-2 sm:text-[11px]">
+                                                        <span><span className="sm:hidden">Làm</span><span className="hidden sm:inline">Đi làm</span></span>
                                                         <span>{summary.present}</span>
                                                     </div>
 
-                                                    <div className="flex items-center justify-between rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
-                                                        <span>Tới trễ</span>
+                                                    <div className="flex items-center justify-between rounded-lg bg-amber-50 px-1.5 py-1 text-[10px] font-semibold text-amber-700 sm:px-2 sm:text-[11px]">
+                                                        <span><span className="sm:hidden">Trễ</span><span className="hidden sm:inline">Tới trễ</span></span>
                                                         <span>{summary.late}</span>
                                                     </div>
 
-                                                    <div className="flex items-center justify-between rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700">
+                                                    <div className="flex items-center justify-between rounded-lg bg-rose-50 px-1.5 py-1 text-[10px] font-semibold text-rose-700 sm:px-2 sm:text-[11px]">
                                                         <span>Vắng</span>
                                                         <span>{summary.absent}</span>
                                                     </div>
@@ -706,7 +707,7 @@ export default function Dashboard() {
 
                                                 <div
                                                     className={
-                                                        'pointer-events-none invisible absolute top-[calc(100%-8px)] z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:visible group-hover:translate-y-2 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-y-2 group-focus-visible:opacity-100 ' +
+                                                        'pointer-events-none invisible absolute top-[calc(100%-8px)] z-50 hidden w-72 sm:block rounded-2xl border border-slate-200 bg-white p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:visible group-hover:translate-y-2 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-y-2 group-focus-visible:opacity-100 ' +
                                                         tooltipPosition
                                                     }
                                                 >
@@ -842,7 +843,6 @@ export default function Dashboard() {
                                 )}
                             </div>
                         </div>
-                    </div>
                     </section>
                 </>
             )}

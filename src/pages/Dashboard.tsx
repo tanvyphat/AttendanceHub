@@ -672,7 +672,7 @@ export default function Dashboard() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className={
-                                                            'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ' +
+                                                            'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold sm:h-8 sm:w-8 sm:text-sm ' +
                                                             (isToday
                                                                 ? 'bg-slate-950 text-white'
                                                                 : 'text-slate-800')

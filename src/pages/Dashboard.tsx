@@ -302,6 +302,14 @@ export default function Dashboard() {
                         ),
                     )
 
+                attendance.forEach((record) => {
+                    record.is_late = isLateArrival(
+                        record.check_in,
+                        employeeNames.get(record.employee_id),
+                        record.work_date,
+                    )
+                })
+
                 const grouped: Record<
                     string,
                     {

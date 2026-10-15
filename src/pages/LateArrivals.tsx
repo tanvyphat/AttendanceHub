@@ -17,6 +17,7 @@ import {
 } from 'react'
 
 import {supabase} from '../lib/supabase'
+import {isLateArrival, getLateThreshold} from '../utils/lateArrival'
 
 interface EmployeeRelation {
     employee_code: string
@@ -167,7 +168,6 @@ export default function LateArrivals() {
                                 )
                             `,
                         )
-                        .eq('is_late', true)
                         .gte('work_date', startDate)
                         .lte('work_date', endDate)
                         .order('work_date', {
@@ -198,8 +198,9 @@ export default function LateArrivals() {
                 }
 
                 setRecords(
-                    (attendanceResult.data ??
-                        []) as unknown as LateRecord[],
+                    ((attendanceResult.data ?? []) as unknown as LateRecord[]).filter((record) =>
+                        isLateArrival(record.check_in, record.employees?.full_name, record.work_date, lateAfterTime),
+                    ),
                 )
             } catch (err) {
                 console.error(err)
@@ -263,7 +264,7 @@ export default function LateArrivals() {
                     const minutes =
                         getLateMinutes(
                             record.check_in,
-                            lateAfterTime,
+                            getLateThreshold(record.employees?.full_name, record.work_date, lateAfterTime),
                         )
 
                     const current =
@@ -457,7 +458,7 @@ export default function LateArrivals() {
 
             <section className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
                 <p className="text-sm text-blue-800">
-                    Mốc tính đi trễ hiện tại:{' '}
+                    Mốc tính đi trễ: 07:45 (Thủy Tiên: 08:15) từ 13/10/2026; trước đó theo cài đặt công ty. {' '}
                     <strong>
                         sau {lateAfterTime}
                     </strong>

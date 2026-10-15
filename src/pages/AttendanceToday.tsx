@@ -17,7 +17,7 @@ import {useSearchParams} from 'react-router-dom'
 import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
-import {isLateArrival, getLateThreshold} from '../utils/lateArrival'
+import {isLateArrival} from '../utils/lateArrival'
 
 type AttendanceStatus =
     | 'pending'

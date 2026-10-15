@@ -641,7 +641,7 @@ export default function AttendanceToday() {
             const latePreview =
                 isLateArrival(row.check_in, employees.find((item) => item.id === employee.id)?.full_name, selectedDate, workSettings.late_after_time)
 
-            if (row.is_late || latePreview) {
+            if (latePreview) {
                 late += 1
             }
 
@@ -906,9 +906,7 @@ export default function AttendanceToday() {
                         rows[employee.id] ??
                         emptyAttendance()
 
-                    const isLate =
-                        row.is_late ||
-                        (isLateArrival(row.check_in, employee.full_name, selectedDate, workSettings.late_after_time))
+                    const isLate = isLateArrival(row.check_in, employee.full_name, selectedDate, workSettings.late_after_time)
 
                     const saving =
                         savingIds.has(

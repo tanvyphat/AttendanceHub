@@ -291,7 +291,7 @@ export default function AttendanceHistory() {
     const [
         lateAfterTime,
         setLateAfterTime,
-    ] = useState('07:35')
+    ] = useState('07:45')
 
     const [
         loading,

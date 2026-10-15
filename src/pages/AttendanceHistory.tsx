@@ -17,6 +17,7 @@ import {
 import TimeInput from '../components/ui/TimeInput'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
+import {isLateArrival} from '../utils/lateArrival'
 import {isValid24HourTime} from '../utils/time24'
 
 type AttendanceStatus =
@@ -290,7 +291,7 @@ export default function AttendanceHistory() {
     const [
         lateAfterTime,
         setLateAfterTime,
-    ] = useState('07:35')
+    ] = useState('07:45')
 
     const [
         loading,
@@ -722,10 +723,12 @@ export default function AttendanceHistory() {
                                         ?.afternoon_status ??
                                         'pending') as AttendanceStatus,
 
-                                isLate:
-                                    attendance
-                                        ?.is_late ??
-                                    false,
+                                isLate: isLateArrival(
+                                    attendance?.check_in,
+                                    employee.full_name,
+                                    workDate,
+                                    lateAfterTime,
+                                ),
 
                                 note:
                                     attendance

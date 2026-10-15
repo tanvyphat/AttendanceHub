@@ -15,6 +15,7 @@ import {
 } from 'react'
 
 import {supabase} from '../lib/supabase'
+import {isLateArrival} from '../utils/lateArrival'
 
 import {
     buildMonthlySummaries,
@@ -416,7 +417,14 @@ export default function Reports() {
                         >
 
                     const attendanceData =
-                        (attendanceResult.data ?? []) as ReportAttendance[]
+                        ((attendanceResult.data ?? []) as ReportAttendance[]).map((record) => ({
+                            ...record,
+                            is_late: isLateArrival(
+                                record.check_in,
+                                allEmployees.find((employee) => employee.id === record.employee_id)?.full_name,
+                                record.work_date,
+                            ),
+                        }))
 
                     const overtimeData =
                         (overtimeResult.data ?? []) as ReportOvertime[]

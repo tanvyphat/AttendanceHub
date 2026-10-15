@@ -14,6 +14,7 @@ import {
 import {useNavigate} from 'react-router-dom'
 
 import {supabase} from '../lib/supabase'
+import {isLateArrival} from '../utils/lateArrival'
 
 type AttendanceStatus =
     | 'pending'
@@ -37,6 +38,7 @@ interface Employee {
 interface AttendanceRecord {
     employee_id: string
     work_date: string
+    check_in: string | null
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
     is_late: boolean
@@ -225,6 +227,7 @@ export default function Dashboard() {
                             `
                                 employee_id,
                                 work_date,
+                                check_in,
                                 morning_status,
                                 afternoon_status,
                                 is_late
@@ -278,6 +281,7 @@ export default function Dashboard() {
                             String(
                                 record.work_date,
                             ),
+                        check_in: record.check_in ? String(record.check_in).slice(0, 5) : null,
                         morning_status:
                             record.morning_status as AttendanceStatus,
                         afternoon_status:

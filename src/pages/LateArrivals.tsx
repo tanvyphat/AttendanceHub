@@ -116,7 +116,7 @@ export default function LateArrivals() {
         useState<LateRecord[]>([])
 
     const [lateAfterTime, setLateAfterTime] =
-        useState('07:35')
+        useState('07:45')
 
     const [search, setSearch] =
         useState('')
@@ -197,9 +197,10 @@ export default function LateArrivals() {
                     )
                 }
 
+                const activeThreshold = settingsResult.data?.late_after_time?.slice(0, 5) ?? '07:45'
                 setRecords(
                     ((attendanceResult.data ?? []) as unknown as LateRecord[]).filter((record) =>
-                        isLateArrival(record.check_in, record.employees?.full_name, record.work_date, lateAfterTime),
+                        isLateArrival(record.check_in, record.employees?.full_name, record.work_date, activeThreshold),
                     ),
                 )
             } catch (err) {

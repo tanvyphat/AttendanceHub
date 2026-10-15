@@ -17,6 +17,7 @@ import {useSearchParams} from 'react-router-dom'
 import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
+import {isLateArrival, getLateThreshold} from '../utils/lateArrival'
 
 type AttendanceStatus =
     | 'pending'
@@ -138,7 +139,7 @@ export default function AttendanceToday() {
     const [workSettings, setWorkSettings] =
         useState({
             work_start_time: '07:30',
-            late_after_time: '07:35',
+            late_after_time: '07:45',
             morning_end_time: '12:00',
             afternoon_start_time: '13:30',
             afternoon_end_time: '17:00',
@@ -177,7 +178,7 @@ export default function AttendanceToday() {
 
                 late_after_time:
                     data.late_after_time?.slice(0, 5) ??
-                    '07:35',
+                    '07:45',
 
                 morning_end_time:
                     data.morning_end_time?.slice(0, 5) ??
@@ -413,6 +414,7 @@ export default function AttendanceToday() {
                         work_date: selectedDate,
                         check_in: checkIn,
                         check_out: checkOut,
+                        is_late: isLateArrival(checkIn, employee.full_name, selectedDate, workSettings.late_after_time),
                         morning_status:
                         row.morning_status,
                         afternoon_status:
@@ -517,6 +519,13 @@ export default function AttendanceToday() {
                             'present'
                                 ? row.check_out || null
                                 : null,
+
+                        is_late: isLateArrival(
+                            row.morning_status === 'present' ? row.check_in : null,
+                            employee.full_name,
+                            selectedDate,
+                            workSettings.late_after_time,
+                        ),
 
                         morning_status:
                         row.morning_status,
@@ -630,8 +639,7 @@ export default function AttendanceToday() {
             }
 
             const latePreview =
-                row.check_in !== '' &&
-                row.check_in > workSettings.late_after_time
+                isLateArrival(row.check_in, employees.find((item) => item.id === employee.id)?.full_name, selectedDate, workSettings.late_after_time)
 
             if (row.is_late || latePreview) {
                 late += 1
@@ -863,7 +871,7 @@ export default function AttendanceToday() {
                     <span>
             ⏰ Đi trễ:
             <strong className="ml-2">
-              Sau {workSettings.late_after_time}
+              Theo quy định từng nhân viên (07:45; Thủy Tiên 08:15 từ 13/10/2026)
             </strong>
           </span>
 
@@ -900,9 +908,7 @@ export default function AttendanceToday() {
 
                     const isLate =
                         row.is_late ||
-                        (row.check_in !== '' &&
-                            row.check_in >
-                            workSettings.late_after_time)
+                        (isLateArrival(row.check_in, employee.full_name, selectedDate, workSettings.late_after_time))
 
                     const saving =
                         savingIds.has(

@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 
+import {getLateThreshold} from './lateArrival'
+
 export type AttendanceStatus =
     | 'pending'
     | 'present'
@@ -69,11 +71,7 @@ export function getMonthRange(
 
     return {
         startDate: `${monthValue}-01`,
-
-        endDate: `${monthValue}-${String(
-            lastDay,
-        ).padStart(2, '0')}`,
-
+        endDate: `${monthValue}-${String(lastDay).padStart(2, '0')}`,
         daysInMonth: lastDay,
     }
 }
@@ -83,12 +81,9 @@ export function buildMonthlySummaries(
     attendance: ReportAttendance[],
 ): EmployeeMonthlySummary[] {
     return employees.map((employee) => {
-        const employeeAttendance =
-            attendance.filter(
-                (record) =>
-                    record.employee_id ===
-                    employee.id,
-            )
+        const employeeAttendance = attendance.filter(
+            (record) => record.employee_id === employee.id,
+        )
 
         let presentSessions = 0
         let approvedLeaveSessions = 0
@@ -96,77 +91,25 @@ export function buildMonthlySummaries(
         let lateCount = 0
 
         for (const record of employeeAttendance) {
-            if (
-                record.morning_status ===
-                'present'
-            ) {
-                presentSessions += 1
-            }
-
-            if (
-                record.afternoon_status ===
-                'present'
-            ) {
-                presentSessions += 1
-            }
-
-            if (
-                record.morning_status ===
-                'approved_leave'
-            ) {
-                approvedLeaveSessions += 1
-            }
-
-            if (
-                record.afternoon_status ===
-                'approved_leave'
-            ) {
-                approvedLeaveSessions += 1
-            }
-
-            if (
-                record.morning_status ===
-                'unapproved_leave'
-            ) {
-                unapprovedLeaveSessions += 1
-            }
-
-            if (
-                record.afternoon_status ===
-                'unapproved_leave'
-            ) {
-                unapprovedLeaveSessions += 1
-            }
-
-            if (record.is_late) {
-                lateCount += 1
-            }
+            if (record.morning_status === 'present') presentSessions += 1
+            if (record.afternoon_status === 'present') presentSessions += 1
+            if (record.morning_status === 'approved_leave') approvedLeaveSessions += 1
+            if (record.afternoon_status === 'approved_leave') approvedLeaveSessions += 1
+            if (record.morning_status === 'unapproved_leave') unapprovedLeaveSessions += 1
+            if (record.afternoon_status === 'unapproved_leave') unapprovedLeaveSessions += 1
+            if (record.is_late) lateCount += 1
         }
 
         return {
             employeeId: employee.id,
-
-            employeeCode:
-            employee.employee_code,
-
-            fullName:
-            employee.full_name,
-
+            employeeCode: employee.employee_code,
+            fullName: employee.full_name,
             presentSessions,
-
-            workDays:
-                presentSessions / 2,
-
+            workDays: presentSessions / 2,
             approvedLeaveSessions,
-
-            approvedLeaveDays:
-                approvedLeaveSessions / 2,
-
+            approvedLeaveDays: approvedLeaveSessions / 2,
             unapprovedLeaveSessions,
-
-            unapprovedLeaveDays:
-                unapprovedLeaveSessions / 2,
-
+            unapprovedLeaveDays: unapprovedLeaveSessions / 2,
             lateCount,
         }
     })
@@ -174,30 +117,16 @@ export function buildMonthlySummaries(
 
 function formatReportDate(value: string) {
     const [year, month, day] = value.split('-')
-
-    if (!year || !month || !day) {
-        return value
-    }
-
+    if (!year || !month || !day) return value
     return `${day}/${month}/${year}`
 }
 
-function timeToMinutes(
-    value: string | null | undefined,
-) {
+function timeToMinutes(value: string | null | undefined) {
     if (!value) return null
 
-    const [hours, minutes] = value
-        .slice(0, 5)
-        .split(':')
-        .map(Number)
+    const [hours, minutes] = value.slice(0, 5).split(':').map(Number)
 
-    if (
-        !Number.isFinite(hours) ||
-        !Number.isFinite(minutes)
-    ) {
-        return null
-    }
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
 
     return hours * 60 + minutes
 }
@@ -206,31 +135,17 @@ function getLateMinutes(
     record: ReportAttendance | undefined,
     lateAfterTime: string,
 ) {
-    if (!record?.is_late) {
-        return 0
-    }
+    if (!record?.is_late) return 0
 
-    const checkInMinutes =
-        timeToMinutes(record.check_in)
-    const lateAfterMinutes =
-        timeToMinutes(lateAfterTime)
+    const checkInMinutes = timeToMinutes(record.check_in)
+    const lateAfterMinutes = timeToMinutes(lateAfterTime)
 
-    if (
-        checkInMinutes === null ||
-        lateAfterMinutes === null
-    ) {
-        return 0
-    }
+    if (checkInMinutes === null || lateAfterMinutes === null) return 0
 
-    return Math.max(
-        0,
-        checkInMinutes - lateAfterMinutes,
-    )
+    return Math.max(0, checkInMinutes - lateAfterMinutes)
 }
 
-function getStatusLabel(
-    status: AttendanceStatus,
-) {
+function getStatusLabel(status: AttendanceStatus) {
     switch (status) {
         case 'present':
             return 'Có mặt'
@@ -246,30 +161,31 @@ function getStatusLabel(
 function getAttendanceDetails(
     record: ReportAttendance | undefined,
     lateAfterTime: string,
+    employeeName: string | null | undefined,
     overtime?: ReportOvertime,
 ) {
-    if (!record) {
-        return 'Chưa chấm'
-    }
+    if (!record) return 'Chưa chấm'
 
     const lines: string[] = []
 
     if (record.check_in) {
-        lines.push(
-            `Vào: ${record.check_in.slice(0, 5)}`,
-        )
+        lines.push(`Vào: ${record.check_in.slice(0, 5)}`)
     }
 
     if (record.check_out) {
-        lines.push(
-            `Ra: ${record.check_out.slice(0, 5)}`,
-        )
+        lines.push(`Ra: ${record.check_out.slice(0, 5)}`)
     }
 
     if (record.is_late) {
+        const effectiveLateAfterTime = getLateThreshold(
+            employeeName,
+            record.work_date,
+            lateAfterTime,
+        )
+
         const lateMinutes = getLateMinutes(
             record,
-            lateAfterTime,
+            effectiveLateAfterTime,
         )
 
         lines.push(
@@ -279,34 +195,21 @@ function getAttendanceDetails(
         )
     }
 
-    lines.push(
-        `Sáng: ${getStatusLabel(
-            record.morning_status,
-        )}`,
-    )
-
-    lines.push(
-        `Chiều: ${getStatusLabel(
-            record.afternoon_status,
-        )}`,
-    )
+    lines.push(`Sáng: ${getStatusLabel(record.morning_status)}`)
+    lines.push(`Chiều: ${getStatusLabel(record.afternoon_status)}`)
 
     if (record.note?.trim()) {
-        lines.push(
-            `Ghi chú: ${record.note.trim()}`,
-        )
+        lines.push(`Ghi chú: ${record.note.trim()}`)
     }
-
 
     if (overtime) {
         const hours = Math.floor(overtime.overtime_minutes / 60)
         const minutes = overtime.overtime_minutes % 60
-        const duration =
-            hours > 0
-                ? minutes > 0
-                    ? `${hours} giờ ${minutes} phút`
-                    : `${hours} giờ`
-                : `${minutes} phút`
+        const duration = hours > 0
+            ? minutes > 0
+                ? `${hours} giờ ${minutes} phút`
+                : `${hours} giờ`
+            : `${minutes} phút`
 
         lines.push(`TĂNG CA: ${duration}`)
     }
@@ -314,37 +217,21 @@ function getAttendanceDetails(
     return lines.join('\n')
 }
 
-function getColumnLetter(
-    columnNumber: number,
-) {
+function getColumnLetter(columnNumber: number) {
     let result = ''
     let number = columnNumber
 
     while (number > 0) {
-        const remainder =
-            (number - 1) % 26
-
-        result =
-            String.fromCharCode(
-                65 + remainder,
-            ) + result
-
-        number = Math.floor(
-            (number - 1) / 26,
-        )
+        const remainder = (number - 1) % 26
+        result = String.fromCharCode(65 + remainder) + result
+        number = Math.floor((number - 1) / 26)
     }
 
     return result
 }
 
-function styleTitle(
-    worksheet: ExcelJS.Worksheet,
-    range: string,
-) {
-    const cell =
-        worksheet.getCell(
-            range.split(':')[0],
-        )
+function styleTitle(worksheet: ExcelJS.Worksheet, range: string) {
+    const cell = worksheet.getCell(range.split(':')[0])
 
     cell.font = {
         name: 'Times New Roman',
@@ -358,9 +245,7 @@ function styleTitle(
     }
 }
 
-function styleHeader(
-    row: ExcelJS.Row,
-) {
+function styleHeader(row: ExcelJS.Row) {
     row.height = 25
 
     row.eachCell((cell) => {
@@ -379,36 +264,14 @@ function styleHeader(
         cell.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: {
-                argb: 'FFE2E8F0',
-            },
+            fgColor: {argb: 'FFE2E8F0'},
         }
 
         cell.border = {
-            top: {
-                style: 'thin',
-                color: {
-                    argb: 'FFCBD5E1',
-                },
-            },
-            left: {
-                style: 'thin',
-                color: {
-                    argb: 'FFCBD5E1',
-                },
-            },
-            bottom: {
-                style: 'thin',
-                color: {
-                    argb: 'FFCBD5E1',
-                },
-            },
-            right: {
-                style: 'thin',
-                color: {
-                    argb: 'FFCBD5E1',
-                },
-            },
+            top: {style: 'thin', color: {argb: 'FFCBD5E1'}},
+            left: {style: 'thin', color: {argb: 'FFCBD5E1'}},
+            bottom: {style: 'thin', color: {argb: 'FFCBD5E1'}},
+            right: {style: 'thin', color: {argb: 'FFCBD5E1'}},
         }
     })
 }
@@ -419,50 +282,17 @@ function applyTableBorders(
     endRow: number,
     columnCount: number,
 ) {
-    for (
-        let rowNumber = startRow;
-        rowNumber <= endRow;
-        rowNumber += 1
-    ) {
-        const row =
-            worksheet.getRow(rowNumber)
+    for (let rowNumber = startRow; rowNumber <= endRow; rowNumber += 1) {
+        const row = worksheet.getRow(rowNumber)
 
-        for (
-            let column = 1;
-            column <= columnCount;
-            column += 1
-        ) {
-            const cell =
-                row.getCell(column)
+        for (let column = 1; column <= columnCount; column += 1) {
+            const cell = row.getCell(column)
 
             cell.border = {
-                top: {
-                    style: 'thin',
-                    color: {
-                        argb: 'FFE2E8F0',
-                    },
-                },
-
-                left: {
-                    style: 'thin',
-                    color: {
-                        argb: 'FFE2E8F0',
-                    },
-                },
-
-                bottom: {
-                    style: 'thin',
-                    color: {
-                        argb: 'FFE2E8F0',
-                    },
-                },
-
-                right: {
-                    style: 'thin',
-                    color: {
-                        argb: 'FFE2E8F0',
-                    },
-                },
+                top: {style: 'thin', color: {argb: 'FFE2E8F0'}},
+                left: {style: 'thin', color: {argb: 'FFE2E8F0'}},
+                bottom: {style: 'thin', color: {argb: 'FFE2E8F0'}},
+                right: {style: 'thin', color: {argb: 'FFE2E8F0'}},
             }
 
             cell.font = {
@@ -486,18 +316,18 @@ function polishWorksheet(
 ) {
     for (let rowNumber = bodyStartRow; rowNumber <= bodyEndRow; rowNumber += 1) {
         const row = worksheet.getRow(rowNumber)
-        row.eachCell({ includeEmpty: true }, (cell) => {
+        row.eachCell({includeEmpty: true}, (cell) => {
             cell.font = {
                 name: 'Times New Roman',
                 size: 12,
-                ...(cell.font?.bold ? { bold: true } : {}),
-                ...(cell.font?.color ? { color: cell.font.color } : {}),
+                ...(cell.font?.bold ? {bold: true} : {}),
+                ...(cell.font?.color ? {color: cell.font.color} : {}),
             }
             cell.alignment = {
                 vertical: 'middle',
                 wrapText: true,
                 ...(cell.alignment?.horizontal
-                    ? { horizontal: cell.alignment.horizontal }
+                    ? {horizontal: cell.alignment.horizontal}
                     : {}),
             }
         })
@@ -517,39 +347,23 @@ function polishWorksheet(
     worksheet.properties.defaultRowHeight = 20
 }
 
-async function applyWorkbookDefaultFont(
-    buffer: ArrayBuffer,
-) {
-    const zip =
-        await JSZip.loadAsync(buffer)
+async function applyWorkbookDefaultFont(buffer: ArrayBuffer) {
+    const zip = await JSZip.loadAsync(buffer)
+    const stylesEntry = zip.file('xl/styles.xml')
 
-    const stylesEntry =
-        zip.file('xl/styles.xml')
+    if (!stylesEntry) return buffer
 
-    if (!stylesEntry) {
-        return buffer
-    }
+    const stylesXml = await stylesEntry.async('string')
+    const defaultFontPattern = /(<fonts\b[^>]*>\s*)<font>[\s\S]*?<\/font>/
 
-    const stylesXml =
-        await stylesEntry.async('string')
+    if (!defaultFontPattern.test(stylesXml)) return buffer
 
-    const defaultFontPattern =
-        /(<fonts\b[^>]*>\s*)<font>[\s\S]*?<\/font>/
-
-    if (!defaultFontPattern.test(stylesXml)) {
-        return buffer
-    }
-
-    const updatedStylesXml =
-        stylesXml.replace(
-            defaultFontPattern,
-            '$1<font><sz val="12"/><color theme="1"/><name val="Times New Roman"/><family val="1"/><charset val="1"/></font>',
-        )
-
-    zip.file(
-        'xl/styles.xml',
-        updatedStylesXml,
+    const updatedStylesXml = stylesXml.replace(
+        defaultFontPattern,
+        '$1<font><sz val="12"/><color theme="1"/><name val="Times New Roman"/><family val="1"/><charset val="1"/></font>',
     )
+
+    zip.file('xl/styles.xml', updatedStylesXml)
 
     return zip.generateAsync({
         type: 'arraybuffer',
@@ -566,169 +380,71 @@ export async function exportAttendanceExcel(
     periodLabel?: string,
     overtime: ReportOvertime[] = [],
 ) {
-    const workbook =
-        new ExcelJS.Workbook()
+    const workbook = new ExcelJS.Workbook()
 
-    workbook.creator =
-        'AttendanceHub'
+    workbook.creator = 'AttendanceHub'
+    workbook.created = new Date()
+    workbook.modified = new Date()
 
-    workbook.created =
-        new Date()
+    const {startDate, endDate, daysInMonth} = getMonthRange(month)
+    const [year, monthNumber] = month.split('-')
+    const displayMonth = `${monthNumber}/${year}`
 
-    workbook.modified =
-        new Date()
+    const fullMonthDates = Array.from(
+        {length: daysInMonth},
+        (_, index) => `${month}-${String(index + 1).padStart(2, '0')}`,
+    )
 
-    const {
-        startDate,
-        endDate,
-        daysInMonth,
-    } = getMonthRange(month)
-
-    const [year, monthNumber] =
-        month.split('-')
-
-    const displayMonth =
-        `${monthNumber}/${year}`
-
-    const fullMonthDates =
-        Array.from(
-            {
-                length: daysInMonth,
-            },
-            (_, index) =>
-                `${month}-${String(
-                    index + 1,
-                ).padStart(2, '0')}`,
-        )
-
-    const exportDates =
-        selectedDates
-            ? Array.from(
-                new Set(
-                    selectedDates.filter(
-                        (date) =>
-                            date >= startDate &&
-                            date <= endDate,
-                    ),
+    const exportDates = selectedDates
+        ? Array.from(
+            new Set(
+                selectedDates.filter(
+                    (date) => date >= startDate && date <= endDate,
                 ),
-            ).sort()
-            : fullMonthDates
+            ),
+        ).sort()
+        : fullMonthDates
 
     if (exportDates.length === 0) {
-        throw new Error(
-            'Chưa chọn tuần hoặc ngày nào để xuất báo cáo.',
-        )
+        throw new Error('Chưa chọn tuần hoặc ngày nào để xuất báo cáo.')
     }
 
-    const exportDateSet =
-        new Set(exportDates)
+    const exportDateSet = new Set(exportDates)
+    const filteredAttendance = attendance.filter((record) =>
+        exportDateSet.has(record.work_date),
+    )
+    const filteredOvertime = overtime.filter((record) =>
+        exportDateSet.has(record.overtime_date),
+    )
 
-    const filteredAttendance =
-        attendance.filter(
-            (record) =>
-                exportDateSet.has(
-                    record.work_date,
-                ),
-        )
-
-    const filteredOvertime =
-        overtime.filter(
-            (record) =>
-                exportDateSet.has(
-                    record.overtime_date,
-                ),
-        )
-
-    const overtimeMap =
-        new Map<string, ReportOvertime>()
-
+    const overtimeMap = new Map<string, ReportOvertime>()
     filteredOvertime.forEach((record) => {
-        overtimeMap.set(
-            `${record.employee_id}_${record.overtime_date}`,
-            record,
-        )
+        overtimeMap.set(`${record.employee_id}_${record.overtime_date}`, record)
     })
 
-    const summaries =
-        buildMonthlySummaries(
-            employees,
-            filteredAttendance,
-        )
+    const summaries = buildMonthlySummaries(employees, filteredAttendance)
+    const firstExportDate = exportDates[0]
+    const lastExportDate = exportDates[exportDates.length - 1]
 
-    const firstExportDate =
-        exportDates[0]
-
-    const lastExportDate =
-        exportDates[
-            exportDates.length - 1
-        ]
-
-    const formatDate = (
-        value: string,
-    ) => {
-        const [
-            dateYear,
-            dateMonth,
-            dateDay,
-        ] = value.split('-')
-
+    const formatDate = (value: string) => {
+        const [dateYear, dateMonth, dateDay] = value.split('-')
         return `${dateDay}/${dateMonth}/${dateYear}`
     }
 
-    const reportPeriodLabel =
-        periodLabel ??
-        `Tháng ${displayMonth}`
+    const reportPeriodLabel = periodLabel ?? `Tháng ${displayMonth}`
 
-    // ========================================
-    // SHEET 1 — TỔNG HỢP
-    // ========================================
+    const summarySheet = workbook.addWorksheet('Tổng hợp', {
+        views: [{state: 'frozen', ySplit: 4}],
+    })
 
-    const summarySheet =
-        workbook.addWorksheet(
-            'Tổng hợp',
-            {
-                views: [
-                    {
-                        state: 'frozen',
-                        ySplit: 4,
-                    },
-                ],
-            },
-        )
+    summarySheet.mergeCells('A1:F1')
+    summarySheet.getCell('A1').value = 'BÁO CÁO CHẤM CÔNG'
+    styleTitle(summarySheet, 'A1:F1')
 
-    summarySheet.mergeCells(
-        'A1:F1',
-    )
-
-    summarySheet.getCell(
-        'A1',
-    ).value =
-        'BÁO CÁO CHẤM CÔNG'
-
-    styleTitle(
-        summarySheet,
-        'A1:F1',
-    )
-
-    summarySheet.mergeCells(
-        'A2:F2',
-    )
-
-    summarySheet.getCell(
-        'A2',
-    ).value =
-        `${reportPeriodLabel} | ${formatDate(
-            firstExportDate,
-        )} → ${formatDate(
-            lastExportDate,
-        )}`
-
-    summarySheet.getCell(
-        'A2',
-    ).alignment = {
-        horizontal: 'center',
-    }
-
+    summarySheet.mergeCells('A2:F2')
+    summarySheet.getCell('A2').value =
+        `${reportPeriodLabel} | ${formatDate(firstExportDate)} → ${formatDate(lastExportDate)}`
+    summarySheet.getCell('A2').alignment = {horizontal: 'center'}
     summarySheet.addRow([])
 
     const summaryHeaders = [
@@ -740,30 +456,19 @@ export async function exportAttendanceExcel(
         'Số lần đi trễ',
     ]
 
-    const summaryHeader =
-        summarySheet.addRow(
-            summaryHeaders,
-        )
-
+    const summaryHeader = summarySheet.addRow(summaryHeaders)
     styleHeader(summaryHeader)
 
-    summaries.forEach(
-        (summary, index) => {
-            summarySheet.addRow([
-                index + 1,
-
-                summary.fullName,
-
-                summary.workDays,
-
-                summary.approvedLeaveDays,
-
-                summary.unapprovedLeaveDays,
-
-                summary.lateCount,
-            ])
-        },
-    )
+    summaries.forEach((summary, index) => {
+        summarySheet.addRow([
+            index + 1,
+            summary.fullName,
+            summary.workDays,
+            summary.approvedLeaveDays,
+            summary.unapprovedLeaveDays,
+            summary.lateCount,
+        ])
+    })
 
     summarySheet.columns = [
         {width: 7},
@@ -774,38 +479,14 @@ export async function exportAttendanceExcel(
         {width: 15},
     ]
 
-    const summaryEndRow =
-        4 + summaries.length
-
-    applyTableBorders(
-        summarySheet,
-        4,
-        summaryEndRow,
-        summaryHeaders.length,
-    )
-
-    for (
-        let row = 5;
-        row <= summaryEndRow;
-        row += 1
-    ) {
-        summarySheet.getCell(
-            row,
-            3,
-        ).numFmt = '0.0'
-
-        summarySheet.getCell(
-            row,
-            4,
-        ).numFmt = '0.0'
-
-        summarySheet.getCell(
-            row,
-            5,
-        ).numFmt = '0.0'
-    }
+    const summaryEndRow = 4 + summaries.length
+    applyTableBorders(summarySheet, 4, summaryEndRow, summaryHeaders.length)
 
     for (let row = 5; row <= summaryEndRow; row += 1) {
+        summarySheet.getCell(row, 3).numFmt = '0.0'
+        summarySheet.getCell(row, 4).numFmt = '0.0'
+        summarySheet.getCell(row, 5).numFmt = '0.0'
+
         const rowRef = summarySheet.getRow(row)
         rowRef.height = 28
 
@@ -814,18 +495,13 @@ export async function exportAttendanceExcel(
                 cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
-                    fgColor: { argb: 'FFF8FAFC' },
+                    fgColor: {argb: 'FFF8FAFC'},
                 }
             })
         }
 
-        rowRef.getCell(1).alignment = {
-            horizontal: 'center',
-            vertical: 'middle',
-        }
-        rowRef.getCell(2).alignment = {
-            vertical: 'middle',
-        }
+        rowRef.getCell(1).alignment = {horizontal: 'center', vertical: 'middle'}
+        rowRef.getCell(2).alignment = {vertical: 'middle'}
         for (let column = 3; column <= 6; column += 1) {
             rowRef.getCell(column).alignment = {
                 horizontal: 'center',
@@ -838,385 +514,217 @@ export async function exportAttendanceExcel(
         from: 'A4',
         to: `F${summaryEndRow}`,
     }
+    summarySheet.views = [{state: 'frozen', ySplit: 4, showGridLines: false}]
 
-    summarySheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]
-
-    // ========================================
-    // SHEET 2 — BẢNG CHẤM CÔNG
-    // Nhân viên theo trục Y, ngày theo trục X
-    // ========================================
-
-    const attendanceSheet =
-        workbook.addWorksheet(
-            'Bảng chấm công',
-            {
-                views: [
-                    {
-                        state: 'frozen',
-                        xSplit: 2,
-                        ySplit: 4,
-                    },
-                ],
-            },
-        )
+    const attendanceSheet = workbook.addWorksheet('Bảng chấm công', {
+        views: [{state: 'frozen', xSplit: 2, ySplit: 4}],
+    })
 
     const matrixHeaders = [
         'STT',
         'Họ và tên',
-
-        ...exportDates.map(
-            (date) => {
-                const [, dateMonth, dateDay] =
-                    date.split('-')
-
-                return `${dateDay}/${dateMonth}`
-            },
-        ),
-
+        ...exportDates.map((date) => {
+            const [, dateMonth, dateDay] = date.split('-')
+            return `${dateDay}/${dateMonth}`
+        }),
         'Ngày công',
         'Đi trễ',
         'Nghỉ phép',
         'Không phép',
     ]
 
-    const matrixLastColumn =
-        getColumnLetter(
-            matrixHeaders.length,
-        )
+    const matrixLastColumn = getColumnLetter(matrixHeaders.length)
 
-    attendanceSheet.mergeCells(
-        `A1:${matrixLastColumn}1`,
-    )
-
-    attendanceSheet.getCell(
-        'A1',
-    ).value =
+    attendanceSheet.mergeCells(`A1:${matrixLastColumn}1`)
+    attendanceSheet.getCell('A1').value =
         `BẢNG CHẤM CÔNG — ${reportPeriodLabel.toUpperCase()}`
+    styleTitle(attendanceSheet, `A1:${matrixLastColumn}1`)
 
-    styleTitle(
-        attendanceSheet,
-        `A1:${matrixLastColumn}1`,
-    )
-
-    attendanceSheet.mergeCells(
-        `A2:${matrixLastColumn}2`,
-    )
-
-    attendanceSheet.getCell(
-        'A2',
-    ).value =
-        `Mỗi ô hiển thị giờ vào, giờ ra, số phút trễ, trạng thái sáng/chiều và ghi chú. Mốc đi trễ: sau ${lateAfterTime}.`
-
-    attendanceSheet.getCell(
-        'A2',
-    ).alignment = {
+    attendanceSheet.mergeCells(`A2:${matrixLastColumn}2`)
+    attendanceSheet.getCell('A2').value =
+        'Mỗi ô hiển thị giờ vào, giờ ra, số phút trễ, trạng thái sáng/chiều và ghi chú. Mốc đi trễ được áp dụng theo từng nhân viên và ngày.'
+    attendanceSheet.getCell('A2').alignment = {
         horizontal: 'center',
         vertical: 'middle',
         wrapText: true,
     }
-
     attendanceSheet.getRow(2).height = 32
-
     attendanceSheet.addRow([])
 
-    const matrixHeaderRow =
-        attendanceSheet.addRow(
-            matrixHeaders,
-        )
-
-    styleHeader(
-        matrixHeaderRow,
-    )
-
+    const matrixHeaderRow = attendanceSheet.addRow(matrixHeaders)
+    styleHeader(matrixHeaderRow)
     matrixHeaderRow.height = 32
     matrixHeaderRow.eachCell((cell) => {
         cell.font = {
             name: 'Times New Roman',
             bold: true,
             size: 11,
-            color: { argb: 'FF0F172A' },
+            color: {argb: 'FF0F172A'},
         }
     })
 
-    const attendanceMap =
-        new Map<
-            string,
-            ReportAttendance
-        >()
+    const attendanceMap = new Map<string, ReportAttendance>()
+    filteredAttendance.forEach((record) => {
+        attendanceMap.set(`${record.employee_id}_${record.work_date}`, record)
+    })
 
-    filteredAttendance.forEach(
-        (record) => {
-            attendanceMap.set(
-                `${record.employee_id}_${record.work_date}`,
+    employees.forEach((employee, index) => {
+        const summary = summaries.find((item) => item.employeeId === employee.id)
+
+        const dayValues = exportDates.map((date) => {
+            const record = attendanceMap.get(`${employee.id}_${date}`)
+
+            return getAttendanceDetails(
                 record,
+                lateAfterTime,
+                employee.full_name,
+                overtimeMap.get(`${employee.id}_${date}`),
             )
-        },
-    )
+        })
 
-    employees.forEach(
-        (employee, index) => {
-            const summary =
-                summaries.find(
-                    (item) =>
-                        item.employeeId ===
-                        employee.id,
-                )
+        const row = attendanceSheet.addRow([
+            index + 1,
+            employee.full_name,
+            ...dayValues,
+            summary?.workDays ?? 0,
+            summary?.lateCount ?? 0,
+            summary?.approvedLeaveDays ?? 0,
+            summary?.unapprovedLeaveDays ?? 0,
+        ])
 
-            const dayValues =
-                exportDates.map(
-                    (date) => {
-                        const record =
-                            attendanceMap.get(
-                                `${employee.id}_${date}`,
-                            )
+        row.height = 92
 
-                        return getAttendanceDetails(
-                            record,
-                            lateAfterTime,
-                            overtimeMap.get(`${employee.id}_${date}`),
-                        )
-                    },
-                )
-
-            const row =
-                attendanceSheet.addRow([
-                    index + 1,
-
-                    employee.full_name,
-
-                    ...dayValues,
-
-                    summary?.workDays ?? 0,
-
-                    summary?.lateCount ?? 0,
-
-                    summary?.approvedLeaveDays ??
-                    0,
-
-                    summary?.unapprovedLeaveDays ??
-                    0,
-                ])
-
-            row.height = 92
-
-            if (index % 2 === 1) {
-                row.eachCell((cell) => {
-                    if (!cell.fill || cell.fill.type !== 'pattern') {
-                        cell.fill = {
-                            type: 'pattern',
-                            pattern: 'solid',
-                            fgColor: { argb: 'FFF8FAFC' },
-                        }
+        if (index % 2 === 1) {
+            row.eachCell((cell) => {
+                if (!cell.fill || cell.fill.type !== 'pattern') {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: {argb: 'FFF8FAFC'},
                     }
-                })
+                }
+            })
+        }
+
+        exportDates.forEach((date, dateIndex) => {
+            const record = attendanceMap.get(`${employee.id}_${date}`)
+            const overtimeRecord = overtimeMap.get(`${employee.id}_${date}`)
+
+            if (!record && !overtimeRecord) return
+
+            const cell = row.getCell(dateIndex + 3)
+
+            const hasUnapprovedLeave =
+                record?.morning_status === 'unapproved_leave' ||
+                record?.afternoon_status === 'unapproved_leave'
+            const hasApprovedLeave =
+                record?.morning_status === 'approved_leave' ||
+                record?.afternoon_status === 'approved_leave'
+            const hasPresent =
+                record?.morning_status === 'present' ||
+                record?.afternoon_status === 'present'
+
+            const fillColor =
+                hasUnapprovedLeave
+                    ? 'FFFEE2E2'
+                    : record?.is_late
+                      ? 'FFFEF3C7'
+                      : hasApprovedLeave
+                        ? 'FFDBEAFE'
+                        : hasPresent
+                          ? 'FFDCFCE7'
+                          : null
+
+            if (fillColor) {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: {argb: fillColor},
+                }
             }
 
-            exportDates.forEach(
-                (date, dateIndex) => {
-                    const record =
-                        attendanceMap.get(
-                            `${employee.id}_${date}`,
-                        )
+            if (overtimeRecord) {
+                const detailText = getAttendanceDetails(
+                    record,
+                    lateAfterTime,
+                    employee.full_name,
+                )
 
-                    const overtimeRecord =
-                        overtimeMap.get(
-                            `${employee.id}_${date}`,
-                        )
+                const hours = Math.floor(overtimeRecord.overtime_minutes / 60)
+                const minutes = overtimeRecord.overtime_minutes % 60
+                const duration = hours > 0
+                    ? minutes > 0
+                        ? `${hours} giờ ${minutes} phút`
+                        : `${hours} giờ`
+                    : `${minutes} phút`
 
-                    if (!record && !overtimeRecord) return
-
-                    const cell =
-                        row.getCell(
-                            dateIndex + 3,
-                        )
-
-                    const hasUnapprovedLeave =
-                        record?.morning_status ===
-                            'unapproved_leave' ||
-                        record?.afternoon_status ===
-                            'unapproved_leave'
-
-                    const hasApprovedLeave =
-                        record?.morning_status ===
-                            'approved_leave' ||
-                        record?.afternoon_status ===
-                            'approved_leave'
-
-                    const hasPresent =
-                        record?.morning_status ===
-                            'present' ||
-                        record?.afternoon_status ===
-                            'present'
-
-                    const fillColor =
-                        hasUnapprovedLeave
-                            ? 'FFFEE2E2'
-                            : record?.is_late
-                              ? 'FFFEF3C7'
-                              : hasApprovedLeave
-                                ? 'FFDBEAFE'
-                                : hasPresent
-                                  ? 'FFDCFCE7'
-                                  : null
-
-                    if (fillColor) {
-                        cell.fill = {
-                            type: 'pattern',
-                            pattern: 'solid',
-                            fgColor: {
-                                argb: fillColor,
+                cell.value = {
+                    richText: [
+                        {
+                            text: detailText === 'Chưa chấm'
+                                ? ''
+                                : `${detailText}\n`,
+                            font: {
+                                name: 'Times New Roman',
+                                size: 12,
                             },
-                        }
-                    }
+                        },
+                        {
+                            text: `TĂNG CA: ${duration}`,
+                            font: {
+                                name: 'Times New Roman',
+                                size: 12,
+                                bold: true,
+                                color: {argb: 'FFFF0000'},
+                            },
+                        },
+                    ],
+                }
+            }
+        })
+    })
 
-                    if (overtimeRecord) {
-                        const detailText = getAttendanceDetails(
-                            record,
-                            lateAfterTime,
-                        )
-
-                        const hours = Math.floor(overtimeRecord.overtime_minutes / 60)
-                        const minutes = overtimeRecord.overtime_minutes % 60
-                        const duration = hours > 0
-                            ? minutes > 0
-                                ? `${hours} giờ ${minutes} phút`
-                                : `${hours} giờ`
-                            : `${minutes} phút`
-
-                        cell.value = {
-                            richText: [
-                                {
-                                    text: detailText === 'Chưa chấm'
-                                        ? ''
-                                        : `${detailText}\n`,
-                                    font: {
-                                        name: 'Times New Roman',
-                                        size: 12,
-                                    },
-                                },
-                                {
-                                    text: `TĂNG CA: ${duration}`,
-                                    font: {
-                                        name: 'Times New Roman',
-                                        size: 12,
-                                        bold: true,
-                                        color: {argb: 'FFFF0000'},
-                                    },
-                                },
-                            ],
-                        }
-                    }
-                },
-            )
-        },
-    )
-
-    attendanceSheet.getColumn(
-        1,
-    ).width = 6
-
-    attendanceSheet.getColumn(
-        2,
-    ).width = 28
+    attendanceSheet.getColumn(1).width = 6
+    attendanceSheet.getColumn(2).width = 28
 
     const firstDayColumn = 3
-    const lastDayColumn =
-        firstDayColumn +
-        exportDates.length -
-        1
+    const lastDayColumn = firstDayColumn + exportDates.length - 1
 
-    for (
-        let column = firstDayColumn;
-        column <= lastDayColumn;
-        column += 1
-    ) {
-        attendanceSheet.getColumn(
-            column,
-        ).width = 24
+    for (let column = firstDayColumn; column <= lastDayColumn; column += 1) {
+        attendanceSheet.getColumn(column).width = 24
     }
 
-    for (
-        let column =
-            lastDayColumn + 1;
-        column <= matrixHeaders.length;
-        column += 1
-    ) {
-        attendanceSheet.getColumn(
-            column,
-        ).width = 13
+    for (let column = lastDayColumn + 1; column <= matrixHeaders.length; column += 1) {
+        attendanceSheet.getColumn(column).width = 13
     }
 
-    const matrixEndRow =
-        4 + employees.length
+    const matrixEndRow = 4 + employees.length
+    applyTableBorders(attendanceSheet, 4, matrixEndRow, matrixHeaders.length)
 
-    applyTableBorders(
-        attendanceSheet,
-        4,
-        matrixEndRow,
-        matrixHeaders.length,
-    )
-
-    for (
-        let row = 5;
-        row <= matrixEndRow;
-        row += 1
-    ) {
-        attendanceSheet.getCell(
-            row,
-            1,
-        ).alignment = {
+    for (let row = 5; row <= matrixEndRow; row += 1) {
+        attendanceSheet.getCell(row, 1).alignment = {
             horizontal: 'center',
             vertical: 'middle',
         }
+        attendanceSheet.getCell(row, 2).alignment = {vertical: 'middle'}
 
-        attendanceSheet.getCell(
-            row,
-            2,
-        ).alignment = {
-            vertical: 'middle',
-        }
-
-        for (
-            let column =
-                firstDayColumn;
-            column <= lastDayColumn;
-            column += 1
-        ) {
-            attendanceSheet.getCell(
-                row,
-                column,
-            ).alignment = {
+        for (let column = firstDayColumn; column <= lastDayColumn; column += 1) {
+            attendanceSheet.getCell(row, column).alignment = {
                 horizontal: 'left',
                 vertical: 'top',
                 wrapText: true,
             }
         }
 
-        attendanceSheet.getCell(
-            row,
-            lastDayColumn + 1,
-        ).numFmt = '0.0'
-
-        attendanceSheet.getCell(
-            row,
-            lastDayColumn + 3,
-        ).numFmt = '0.0'
-
-        attendanceSheet.getCell(
-            row,
-            lastDayColumn + 4,
-        ).numFmt = '0.0'
+        attendanceSheet.getCell(row, lastDayColumn + 1).numFmt = '0.0'
+        attendanceSheet.getCell(row, lastDayColumn + 3).numFmt = '0.0'
+        attendanceSheet.getCell(row, lastDayColumn + 4).numFmt = '0.0'
     }
 
     for (let row = 5; row <= matrixEndRow; row += 1) {
         const rowRef = attendanceSheet.getRow(row)
-        rowRef.getCell(1).alignment = {
-            horizontal: 'center',
-            vertical: 'middle',
-        }
-        rowRef.getCell(2).alignment = {
-            vertical: 'middle',
-        }
+        rowRef.getCell(1).alignment = {horizontal: 'center', vertical: 'middle'}
+        rowRef.getCell(2).alignment = {vertical: 'middle'}
         rowRef.getCell(2).font = {
             name: 'Times New Roman',
             size: 12,
@@ -1235,7 +743,6 @@ export async function exportAttendanceExcel(
         from: 'A4',
         to: `${matrixLastColumn}${matrixEndRow}`,
     }
-
     attendanceSheet.views = [{
         state: 'frozen',
         xSplit: 2,
@@ -1243,37 +750,14 @@ export async function exportAttendanceExcel(
         showGridLines: false,
     }]
 
-    // ========================================
-    // SHEET 3 — ĐI TRỄ & NGHỈ
-    // ========================================
+    const detailSheet = workbook.addWorksheet('Đi trễ & Nghỉ', {
+        views: [{state: 'frozen', ySplit: 4}],
+    })
 
-    const detailSheet =
-        workbook.addWorksheet(
-            'Đi trễ & Nghỉ',
-            {
-                views: [
-                    {
-                        state: 'frozen',
-                        ySplit: 4,
-                    },
-                ],
-            },
-        )
-
-    detailSheet.mergeCells(
-        'A1:H1',
-    )
-
-    detailSheet.getCell(
-        'A1',
-    ).value =
+    detailSheet.mergeCells('A1:H1')
+    detailSheet.getCell('A1').value =
         `CHI TIẾT ĐI TRỄ & NGHỈ — ${reportPeriodLabel.toUpperCase()}`
-
-    styleTitle(
-        detailSheet,
-        'A1:H1',
-    )
-
+    styleTitle(detailSheet, 'A1:H1')
     detailSheet.addRow([])
     detailSheet.addRow([])
 
@@ -1288,42 +772,22 @@ export async function exportAttendanceExcel(
         'Ghi chú',
     ]
 
-    const detailHeader =
-        detailSheet.addRow(
-            detailHeaders,
-        )
-
+    const detailHeader = detailSheet.addRow(detailHeaders)
     styleHeader(detailHeader)
 
-    const employeeMap =
-        new Map(
-            employees.map(
-                (employee) => [
-                    employee.id,
-                    employee,
-                ],
-            ),
-        )
+    const employeeMap = new Map(
+        employees.map((employee) => [employee.id, employee]),
+    )
 
-    const sortedAttendance = [
-        ...filteredAttendance,
-    ].sort((a, b) => {
+    const sortedAttendance = [...filteredAttendance].sort((a, b) => {
         const dateCompare = a.work_date.localeCompare(b.work_date)
+        if (dateCompare !== 0) return dateCompare
 
-        if (dateCompare !== 0) {
-            return dateCompare
-        }
-
-        const employeeA =
-            employeeMap.get(a.employee_id)?.full_name ?? ''
-        const employeeB =
-            employeeMap.get(b.employee_id)?.full_name ?? ''
-
+        const employeeA = employeeMap.get(a.employee_id)?.full_name ?? ''
+        const employeeB = employeeMap.get(b.employee_id)?.full_name ?? ''
         return employeeA.localeCompare(employeeB)
     })
 
-    // Tạo dữ liệu chi tiết trước, sau đó merge chính xác theo từng nhóm ngày.
-    // Mỗi dòng đều có ngày thật để không bao giờ làm mất ngày kế tiếp.
     const detailDateRanges: Array<{
         date: string
         startRow: number
@@ -1339,13 +803,10 @@ export async function exportAttendanceExcel(
         period: string,
         leaveStatus?: AttendanceStatus,
     ) => {
-        const employee =
-            employeeMap.get(record.employee_id)
-
+        const employee = employeeMap.get(record.employee_id)
         if (!employee) return
 
-        const displayDate =
-            formatReportDate(record.work_date)
+        const displayDate = formatReportDate(record.work_date)
 
         if (currentDate !== displayDate) {
             if (currentDate && currentStartRow > 0) {
@@ -1357,39 +818,34 @@ export async function exportAttendanceExcel(
             }
 
             currentDate = displayDate
-            currentStartRow =
-                detailSheet.rowCount + 1
+            currentStartRow = detailSheet.rowCount + 1
         }
 
-        const lateMinutes =
-            type === 'late'
-                ? getLateMinutes(
-                    record,
+        const lateMinutes = type === 'late'
+            ? getLateMinutes(
+                record,
+                getLateThreshold(
+                    employee.full_name,
+                    record.work_date,
                     lateAfterTime,
-                )
-                : null
+                ),
+            )
+            : null
 
-        const row =
-            detailSheet.addRow([
-                displayDate,
-                employee.full_name,
-                type === 'late'
-                    ? 'Đi trễ'
-                    : leaveStatus === 'unapproved_leave'
-                      ? 'Nghỉ không phép'
-                      : 'Nghỉ có phép',
-                period,
-                record.check_in
-                    ? record.check_in.slice(0, 5)
-                    : '',
-                record.check_out
-                    ? record.check_out.slice(0, 5)
-                    : '',
-                lateMinutes && lateMinutes > 0
-                    ? lateMinutes
-                    : '',
-                record.note?.trim() ?? '',
-            ])
+        const row = detailSheet.addRow([
+            displayDate,
+            employee.full_name,
+            type === 'late'
+                ? 'Đi trễ'
+                : leaveStatus === 'unapproved_leave'
+                  ? 'Nghỉ không phép'
+                  : 'Nghỉ có phép',
+            period,
+            record.check_in ? record.check_in.slice(0, 5) : '',
+            record.check_out ? record.check_out.slice(0, 5) : '',
+            lateMinutes && lateMinutes > 0 ? lateMinutes : '',
+            record.note?.trim() ?? '',
+        ])
 
         row.eachCell((cell) => {
             cell.font = {
@@ -1407,67 +863,39 @@ export async function exportAttendanceExcel(
             size: 12,
             bold: true,
             color: {
-                argb:
-                    type === 'late'
-                        ? 'FFB45309'
-                        : leaveStatus ===
-                            'unapproved_leave'
-                          ? 'FFDC2626'
-                          : 'FF2563EB',
+                argb: type === 'late'
+                    ? 'FFB45309'
+                    : leaveStatus === 'unapproved_leave'
+                      ? 'FFDC2626'
+                      : 'FF2563EB',
             },
         }
     }
 
     sortedAttendance.forEach((record) => {
         const morningLeave =
-            record.morning_status ===
-                'approved_leave' ||
-            record.morning_status ===
-                'unapproved_leave'
-
+            record.morning_status === 'approved_leave' ||
+            record.morning_status === 'unapproved_leave'
         const afternoonLeave =
-            record.afternoon_status ===
-                'approved_leave' ||
-            record.afternoon_status ===
-                'unapproved_leave'
+            record.afternoon_status === 'approved_leave' ||
+            record.afternoon_status === 'unapproved_leave'
 
         if (record.is_late) {
-            addDetailRow(
-                record,
-                'late',
-                'Sáng',
-            )
+            addDetailRow(record, 'late', 'Sáng')
         }
 
         if (
             morningLeave &&
             afternoonLeave &&
-            record.morning_status ===
-                record.afternoon_status
+            record.morning_status === record.afternoon_status
         ) {
-            addDetailRow(
-                record,
-                'leave',
-                'Cả ngày',
-                record.morning_status,
-            )
+            addDetailRow(record, 'leave', 'Cả ngày', record.morning_status)
         } else {
             if (morningLeave) {
-                addDetailRow(
-                    record,
-                    'leave',
-                    'Sáng',
-                    record.morning_status,
-                )
+                addDetailRow(record, 'leave', 'Sáng', record.morning_status)
             }
-
             if (afternoonLeave) {
-                addDetailRow(
-                    record,
-                    'leave',
-                    'Chiều',
-                    record.afternoon_status,
-                )
+                addDetailRow(record, 'leave', 'Chiều', record.afternoon_status)
             }
         }
     })
@@ -1480,45 +908,28 @@ export async function exportAttendanceExcel(
         })
     }
 
-    // Chỉ merge đúng các dòng thuộc cùng một ngày.
-    detailDateRanges.forEach(
-        ({ startRow, endRow }) => {
-            if (endRow <= startRow) return
+    detailDateRanges.forEach(({startRow, endRow}) => {
+        if (endRow <= startRow) return
 
-            detailSheet.mergeCells(
-                startRow,
-                1,
-                endRow,
-                1,
-            )
+        detailSheet.mergeCells(startRow, 1, endRow, 1)
+        const dateCell = detailSheet.getCell(startRow, 1)
 
-            const dateCell =
-                detailSheet.getCell(
-                    startRow,
-                    1,
-                )
-
-            dateCell.alignment = {
-                horizontal: 'center',
-                vertical: 'middle',
-                wrapText: true,
-            }
-
-            dateCell.font = {
-                name: 'Times New Roman',
-                size: 12,
-                bold: true,
-            }
-
-            dateCell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: {
-                    argb: 'FFEFF6FF',
-                },
-            }
-        },
-    )
+        dateCell.alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+            wrapText: true,
+        }
+        dateCell.font = {
+            name: 'Times New Roman',
+            size: 12,
+            bold: true,
+        }
+        dateCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: {argb: 'FFEFF6FF'},
+        }
+    })
 
     detailSheet.columns = [
         {width: 14},
@@ -1531,9 +942,7 @@ export async function exportAttendanceExcel(
         {width: 35},
     ]
 
-    if (
-        detailSheet.rowCount >= 4
-    ) {
+    if (detailSheet.rowCount >= 4) {
         applyTableBorders(
             detailSheet,
             4,
@@ -1550,7 +959,7 @@ export async function exportAttendanceExcel(
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: 'FFF8FAFC' },
+                        fgColor: {argb: 'FFF8FAFC'},
                     }
                 })
             }
@@ -1581,25 +990,13 @@ export async function exportAttendanceExcel(
                 vertical: 'middle',
             }
         }
-
-        // Không bật AutoFilter trên vùng có ô Ngày được merge,
-        // vì Excel xử lý merged cells trong vùng lọc không ổn định.
     }
 
-    detailSheet.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }]
+    detailSheet.views = [{state: 'frozen', ySplit: 4, showGridLines: false}]
 
-    polishWorksheet(
-        summarySheet,
-        4,
-        summaryEndRow,
-        summaryHeaders.length,
-    )
-    polishWorksheet(
-        attendanceSheet,
-        4,
-        matrixEndRow,
-        matrixHeaders.length,
-    )
+    polishWorksheet(summarySheet, 4, summaryEndRow, summaryHeaders.length)
+    polishWorksheet(attendanceSheet, 4, matrixEndRow, matrixHeaders.length)
+
     if (detailSheet.rowCount >= 4) {
         polishWorksheet(
             detailSheet,
@@ -1609,57 +1006,26 @@ export async function exportAttendanceExcel(
         )
     }
 
-    // ========================================
-    // DOWNLOAD
-    // ========================================
+    const buffer = await workbook.xlsx.writeBuffer()
+    const styledBuffer = await applyWorkbookDefaultFont(buffer)
 
-    const buffer =
-        await workbook.xlsx.writeBuffer()
+    const blob = new Blob([styledBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
 
-    // Patch the XLSX Normal style so the workbook default font,
-    // including blank cells, is Times New Roman 12pt.
-    const styledBuffer =
-        await applyWorkbookDefaultFont(
-            buffer,
-        )
-
-    const blob =
-        new Blob(
-            [styledBuffer],
-            {
-                type:
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            },
-        )
-
-    const url =
-        URL.createObjectURL(blob)
-
-    const anchor =
-        document.createElement('a')
-
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
     anchor.href = url
 
-    const filePeriod =
-        selectedDates
-            ? `Tuan_${firstExportDate.slice(
-                8,
-                10,
-            )}-${lastExportDate.slice(
-                8,
-                10,
-            )}`
-            : 'Thang'
+    const filePeriod = selectedDates
+        ? `Tuan_${firstExportDate.slice(8, 10)}-${lastExportDate.slice(8, 10)}`
+        : 'Thang'
 
     anchor.download =
         `ChamCong_${monthNumber}_${year}_${filePeriod}.xlsx`
 
-    document.body.appendChild(
-        anchor,
-    )
-
+    document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
-
     URL.revokeObjectURL(url)
 }

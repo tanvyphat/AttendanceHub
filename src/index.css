@@ -55,6 +55,46 @@ button {
     font: inherit;
 }
 
+/* Standardize legacy inline success/error messages as top-right toasts. */
+main div[class*="border-emerald-200"][class*="bg-emerald-50"],
+main div[class*="border-red-200"][class*="bg-red-50"] {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 95;
+    width: min(calc(100vw - 2.5rem), 24rem);
+    margin: 0;
+    border-radius: 1rem;
+    background: white;
+    box-shadow: 0 20px 40px rgb(15 23 42 / 0.12);
+    animation: attendance-inline-toast 4s ease forwards;
+    pointer-events: none;
+}
+
+main div[class*="border-emerald-200"][class*="bg-emerald-50"] {
+    border-color: #a7f3d0;
+}
+
+main div[class*="border-red-200"][class*="bg-red-50"] {
+    border-color: #fecaca;
+}
+
+@keyframes attendance-inline-toast {
+    0% {
+        opacity: 0;
+        transform: translate3d(0, -10px, 0) scale(0.98);
+    }
+    10%,
+    88% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate3d(0, -8px, 0) scale(0.98);
+    }
+}
+
 @media (max-width: 639px) {
     main > .p-6 {
         padding: 1rem;

@@ -58,6 +58,12 @@ interface OvertimePerson {
     endTime: string
 }
 
+interface LatePerson {
+    employeeId: string
+    name: string
+    checkIn: string
+}
+
 interface AbsentPerson {
     employeeId: string
     name: string
@@ -68,6 +74,7 @@ interface DaySummary {
     present: number
     late: number
     absent: number
+    latePeople: LatePerson[]
     absentPeople: AbsentPerson[]
     overtimePeople: OvertimePerson[]
 }
@@ -140,6 +147,7 @@ const emptyDaySummary: DaySummary = {
     present: 0,
     late: 0,
     absent: 0,
+    latePeople: [],
     absentPeople: [],
     overtimePeople: [],
 }
@@ -218,6 +226,7 @@ export default function Dashboard() {
                     {
                         presentIds: Set<string>
                         lateIds: Set<string>
+                        latePeople: Map<string, LatePerson>
                         absentPeople: Map<string, AbsentPerson>
                         overtimePeople: Map<string, OvertimePerson>
                     }
@@ -228,6 +237,7 @@ export default function Dashboard() {
                         grouped[record.overtime_date] = {
                             presentIds: new Set<string>(),
                             lateIds: new Set<string>(),
+                            latePeople: new Map<string, LatePerson>(),
                             absentPeople: new Map<string, AbsentPerson>(),
                             overtimePeople: new Map<string, OvertimePerson>(),
                         }
@@ -246,6 +256,7 @@ export default function Dashboard() {
                         grouped[record.work_date] = {
                             presentIds: new Set<string>(),
                             lateIds: new Set<string>(),
+                            latePeople: new Map<string, LatePerson>(),
                             absentPeople: new Map<string, AbsentPerson>(),
                             overtimePeople: new Map<string, OvertimePerson>(),
                         }
@@ -260,7 +271,17 @@ export default function Dashboard() {
                         day.presentIds.add(record.employee_id)
                     }
 
-                    if (record.is_late) day.lateIds.add(record.employee_id)
+                    if (record.is_late) {
+                        day.lateIds.add(record.employee_id)
+
+                        if (record.check_in) {
+                            day.latePeople.set(record.employee_id, {
+                                employeeId: record.employee_id,
+                                name: employeeNames.get(record.employee_id) ?? 'Nhân viên',
+                                checkIn: record.check_in,
+                            })
+                        }
+                    }
 
                     if (isLeave(record.morning_status) || isLeave(record.afternoon_status)) {
                         day.absentPeople.set(record.employee_id, {
@@ -278,6 +299,7 @@ export default function Dashboard() {
                             present: day.presentIds.size,
                             late: day.lateIds.size,
                             absent: day.absentPeople.size,
+                            latePeople: Array.from(day.latePeople.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi')),
                             absentPeople: Array.from(day.absentPeople.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi')),
                             overtimePeople: Array.from(day.overtimePeople.values()).sort((a, b) => a.name.localeCompare(b.name, 'vi')),
                         } satisfies DaySummary,
@@ -433,11 +455,17 @@ export default function Dashboard() {
                                             aria-label={'Mở chấm công ngày ' + formatDate(date)}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className={'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold sm:h-8 sm:w-8 sm:text-sm ' + (isToday ? 'bg-slate-950 text-white' : 'text-slate-800')}>
+                                                <span className={
+                                                    'flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold sm:h-8 sm:w-8 sm:text-sm ' +
+                                                    (isToday ? 'bg-slate-950 text-white' : 'text-slate-800')
+                                                }>
                                                     {day}
                                                 </span>
+
                                                 {isToday && (
-                                                    <span className="hidden text-[10px] font-bold uppercase tracking-wide text-blue-600 sm:inline">Hôm nay</span>
+                                                    <span className="hidden text-[10px] font-bold uppercase tracking-wide text-blue-600 sm:inline">
+                                                        Hôm nay
+                                                    </span>
                                                 )}
                                             </div>
 
@@ -456,7 +484,13 @@ export default function Dashboard() {
                                                 </div>
                                             </div>
 
-                                            <div className={'pointer-events-none invisible absolute ' + verticalPosition + ' z-[100] hidden w-72 rounded-2xl border border-slate-200 bg-white p-4 opacity-0 shadow-2xl transition-all duration-150 group-hover:visible ' + verticalAnimation + ' group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 sm:block ' + horizontalPosition}>
+                                            <div
+                                                className={
+                                                    'pointer-events-none invisible absolute ' + verticalPosition + ' z-50 hidden w-72 rounded-2xl border border-slate-200 bg-white p-4 opacity-0 shadow-2xl transition-all duration-150 sm:block ' +
+                                                    horizontalPosition + ' ' +
+                                                    verticalAnimation + ' group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100'
+                                                }
+                                            >
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div>
                                                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Chi tiết ngày</p>
@@ -482,8 +516,41 @@ export default function Dashboard() {
 
                                                 <div className="mt-3 border-t border-slate-100 pt-3">
                                                     <div className="flex items-center justify-between">
+                                                        <p className="text-xs font-bold text-amber-600">Nhân viên tới trễ</p>
+                                                        <span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-600">
+                                                            {summary.latePeople.length} người
+                                                        </span>
+                                                    </div>
+
+                                                    {summary.latePeople.length > 0 ? (
+                                                        <div className="mt-2 space-y-1.5">
+                                                            {summary.latePeople.map((person) => (
+                                                                <div
+                                                                    key={person.employeeId}
+                                                                    className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-2.5 py-2"
+                                                                >
+                                                                    <span className="min-w-0 truncate text-xs font-semibold text-amber-800">
+                                                                        {person.name}
+                                                                    </span>
+                                                                    <span className="shrink-0 text-[10px] font-bold text-amber-600">
+                                                                        vào {person.checkIn}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="mt-2 text-xs text-slate-400">
+                                                            Không có nhân viên tới trễ.
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="mt-3 border-t border-slate-100 pt-3">
+                                                    <div className="flex items-center justify-between">
                                                         <p className="text-xs font-bold text-red-600">Tăng ca</p>
-                                                        <span className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">{summary.overtimePeople.length} người</span>
+                                                        <span className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">
+                                                            {summary.overtimePeople.length} người
+                                                        </span>
                                                     </div>
 
                                                     {summary.overtimePeople.length > 0 ? (
@@ -510,6 +577,7 @@ export default function Dashboard() {
 
                                                 <div className="mt-3 border-t border-slate-100 pt-3">
                                                     <p className="text-xs font-bold text-slate-700">Nhân viên vắng</p>
+
                                                     {summary.absentPeople.length > 0 ? (
                                                         <div className="mt-2 space-y-1.5">
                                                             {summary.absentPeople.map((person) => (

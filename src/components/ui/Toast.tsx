@@ -1,4 +1,5 @@
 import {
+    AlertCircle,
     CheckCircle2,
     X,
 } from 'lucide-react'
@@ -10,57 +11,53 @@ interface ToastProps {
     message: string | null
     duration?: number
     onClose: () => void
+    variant?: 'success' | 'error'
 }
 
 export default function Toast({
     message,
-    duration = 3000,
+    duration = 4000,
     onClose,
+    variant = 'success',
 }: ToastProps) {
     useEffect(() => {
-        if (!message) {
-            return
-        }
+        if (!message) return
 
-        const timer =
-            window.setTimeout(
-                onClose,
-                duration,
-            )
+        const timer = window.setTimeout(onClose, duration)
 
-        return () => {
-            window.clearTimeout(
-                timer,
-            )
-        }
-    }, [
-        message,
-        duration,
-        onClose,
-    ])
+        return () => window.clearTimeout(timer)
+    }, [message, duration, onClose])
 
-    if (!message) {
-        return null
-    }
+    if (!message) return null
+
+    const isError = variant === 'error'
 
     return (
         <div
-            role="status"
-            aria-live="polite"
-            className="fixed right-5 top-5 z-[90] w-[calc(100%-2.5rem)] max-w-sm rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl shadow-slate-950/10"
+            role={isError ? 'alert' : 'status'}
+            aria-live={isError ? 'assertive' : 'polite'}
+            className="fixed right-5 top-5 z-[100] w-[calc(100%-2.5rem)] max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
         >
-            <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                    <CheckCircle2
-                        size={20}
-                    />
+            <div className="flex items-start gap-3 p-4">
+                <div
+                    className={[
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                        isError
+                            ? 'bg-red-50 text-red-600'
+                            : 'bg-emerald-50 text-emerald-600',
+                    ].join(' ')}
+                >
+                    {isError ? (
+                        <AlertCircle size={20}/>
+                    ) : (
+                        <CheckCircle2 size={20}/>
+                    )}
                 </div>
 
                 <div className="min-w-0 flex-1 pt-0.5">
                     <p className="text-sm font-bold text-slate-950">
-                        Thành công
+                        {isError ? 'Có lỗi xảy ra' : 'Thành công'}
                     </p>
-
                     <p className="mt-1 text-sm leading-5 text-slate-600">
                         {message}
                     </p>
@@ -76,13 +73,20 @@ export default function Toast({
                 </button>
             </div>
 
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-emerald-100">
+            <div
+                className={[
+                    'h-1 overflow-hidden',
+                    isError ? 'bg-red-100' : 'bg-emerald-100',
+                ].join(' ')}
+            >
                 <div
-                    key={message}
-                    className="h-full w-full origin-left bg-emerald-500"
+                    key={`${variant}-${message}`}
+                    className={[
+                        'h-full w-full origin-left',
+                        isError ? 'bg-red-500' : 'bg-emerald-500',
+                    ].join(' ')}
                     style={{
-                        animation:
-                            `attendance-toast-progress ${duration}ms linear forwards`,
+                        animation: `attendance-toast-progress ${duration}ms linear forwards`,
                     }}
                 />
             </div>
@@ -90,13 +94,8 @@ export default function Toast({
             <style>
                 {`
                     @keyframes attendance-toast-progress {
-                        from {
-                            transform: scaleX(1);
-                        }
-
-                        to {
-                            transform: scaleX(0);
-                        }
+                        from { transform: scaleX(1); }
+                        to { transform: scaleX(0); }
                     }
                 `}
             </style>

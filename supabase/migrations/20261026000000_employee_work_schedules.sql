@@ -34,7 +34,7 @@ create table public.employee_work_schedules (
             employee_id with =,
             daterange(
                 effective_from,
-                coalesce(effective_to + 1, date '9999-12-31'),
+                coalesce(effective_to + 1, 'infinity'::date),
                 '[)'
             ) with &&
         )

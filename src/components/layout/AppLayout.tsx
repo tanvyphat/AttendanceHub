@@ -10,7 +10,7 @@ export default function AppLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-slate-50">
+        <div className="min-h-screen overflow-x-clip bg-slate-50">
             <Sidebar
                 mobileOpen={mobileMenuOpen}
                 onClose={() => setMobileMenuOpen(false)}
@@ -26,7 +26,7 @@ export default function AppLayout() {
             )}
 
             <div className="min-h-screen lg:pl-72">
-                <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:h-20 lg:px-8">
+                <header className="fixed inset-x-0 top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:left-72 lg:h-20 lg:px-8">
                     <div className="flex min-w-0 items-center gap-3">
                         <button
                             type="button"
@@ -74,7 +74,7 @@ export default function AppLayout() {
                     </div>
                 </header>
 
-                <main className="min-h-[calc(100vh-64px)] overflow-x-hidden lg:min-h-[calc(100vh-80px)]">
+                <main className="min-h-screen overflow-visible pt-16 lg:pt-20">
                     <Outlet/>
                 </main>
             </div>

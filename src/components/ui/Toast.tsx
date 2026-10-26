@@ -14,19 +14,19 @@ interface ToastProps {
     variant?: 'success' | 'error'
 }
 
+const TOAST_DURATION = 4000
+
 export default function Toast({
     message,
-    duration = 4000,
     onClose,
     variant = 'success',
 }: ToastProps) {
     useEffect(() => {
         if (!message) return
 
-        const timer = window.setTimeout(onClose, duration)
-
+        const timer = window.setTimeout(onClose, TOAST_DURATION)
         return () => window.clearTimeout(timer)
-    }, [message, duration, onClose])
+    }, [message, onClose])
 
     if (!message) return null
 
@@ -42,16 +42,10 @@ export default function Toast({
                 <div
                     className={[
                         'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                        isError
-                            ? 'bg-red-50 text-red-600'
-                            : 'bg-emerald-50 text-emerald-600',
+                        isError ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600',
                     ].join(' ')}
                 >
-                    {isError ? (
-                        <AlertCircle size={20}/>
-                    ) : (
-                        <CheckCircle2 size={20}/>
-                    )}
+                    {isError ? <AlertCircle size={20}/> : <CheckCircle2 size={20}/>} 
                 </div>
 
                 <div className="min-w-0 flex-1 pt-0.5">
@@ -73,21 +67,11 @@ export default function Toast({
                 </button>
             </div>
 
-            <div
-                className={[
-                    'h-1 overflow-hidden',
-                    isError ? 'bg-red-100' : 'bg-emerald-100',
-                ].join(' ')}
-            >
+            <div className={['h-1 overflow-hidden', isError ? 'bg-red-100' : 'bg-emerald-100'].join(' ')}>
                 <div
                     key={`${variant}-${message}`}
-                    className={[
-                        'h-full w-full origin-left',
-                        isError ? 'bg-red-500' : 'bg-emerald-500',
-                    ].join(' ')}
-                    style={{
-                        animation: `attendance-toast-progress ${duration}ms linear forwards`,
-                    }}
+                    className={['h-full w-full origin-left', isError ? 'bg-red-500' : 'bg-emerald-500'].join(' ')}
+                    style={{animation: `attendance-toast-progress ${TOAST_DURATION}ms linear forwards`}}
                 />
             </div>
 

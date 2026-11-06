@@ -17,7 +17,12 @@ import {useSearchParams} from 'react-router-dom'
 import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
-import {isLateArrival, type LatePermissionStatus} from '../utils/lateArrival'
+import {
+    isLateArrival,
+    setEmployeeLateSchedules,
+    type EmployeeLateSchedule,
+    type LatePermissionStatus,
+} from '../utils/lateArrival'
 
 type AttendanceStatus =
     | 'pending'
@@ -148,117 +153,77 @@ export default function AttendanceToday() {
         })
 
     useEffect(() => {
-        const loadWorkSettings = async () => {
-            const {
-                data,
-                error: settingsError,
-            } = await supabase
-                .from('company_settings')
-                .select(
-                    `
-                        work_start_time,
-                        late_after_time,
-                        morning_end_time,
-                        afternoon_start_time,
-                        afternoon_end_time
-                    `,
-                )
-                .eq('id', 1)
-                .maybeSingle()
-
-            if (settingsError) {
-                console.error(settingsError)
-                return
-            }
-
-            if (!data) return
-
-            setWorkSettings({
-                work_start_time:
-                    data.work_start_time?.slice(0, 5) ??
-                    '07:30',
-
-                late_after_time:
-                    data.late_after_time?.slice(0, 5) ??
-                    '07:45',
-
-                morning_end_time:
-                    data.morning_end_time?.slice(0, 5) ??
-                    '12:00',
-
-                afternoon_start_time:
-                    data.afternoon_start_time?.slice(0, 5) ??
-                    '13:30',
-
-                afternoon_end_time:
-                    data.afternoon_end_time?.slice(0, 5) ??
-                    '17:00',
-            })
-        }
-
-        void loadWorkSettings()
-    }, [])
-
-    useEffect(() => {
+        let cancelled = false
         const loadAttendance = async () => {
             setLoading(true)
             setError(null)
 
             try {
-                const {data: employeeData, error: employeeError} =
-                    await supabase
+                // Load everything the lateness UI needs for this date before
+                // revealing attendance rows. A hard refresh must not fall back
+                // to the company's threshold for an employee with a custom schedule.
+                const [employeeResult, attendanceResult, settingsResult, schedulesResult] = await Promise.all([
+                    supabase
                         .from('employees')
-                        .select(
-                            'id, employee_code, full_name',
-                        )
+                        .select('id, employee_code, full_name')
                         .eq('is_active', true)
-                        .order('employee_code')
+                        .order('employee_code'),
+                    supabase
+                        .from('attendance')
+                        .select(`
+                            id,
+                            employee_id,
+                            check_in,
+                            check_out,
+                            morning_status,
+                            afternoon_status,
+                            is_late,
+                            late_permission_status,
+                            note
+                        `)
+                        .eq('work_date', selectedDate),
+                    supabase
+                        .from('company_settings')
+                        .select('work_start_time, late_after_time, morning_end_time, afternoon_start_time, afternoon_end_time')
+                        .eq('id', 1)
+                        .maybeSingle(),
+                    supabase
+                        .from('employee_work_schedules')
+                        .select('employee_id, effective_from, effective_to, late_after_time')
+                        .lte('effective_from', selectedDate)
+                        .or(`effective_to.is.null,effective_to.gte.${selectedDate}`)
+                        .order('effective_from', {ascending: false}),
+                ])
 
-                if (employeeError) {
-                    throw employeeError
+                if (employeeResult.error) throw employeeResult.error
+                if (attendanceResult.error) throw attendanceResult.error
+                if (settingsResult.error) throw settingsResult.error
+                if (schedulesResult.error) throw schedulesResult.error
+                if (cancelled) return
+
+                const employeeList = employeeResult.data ?? []
+                const attendanceData = attendanceResult.data ?? []
+                const schedules = (schedulesResult.data ?? []) as EmployeeLateSchedule[]
+                const data = settingsResult.data
+
+                // The shared resolver is used by badges, counters and the save
+                // payload. Prime it before publishing data to the UI.
+                setEmployeeLateSchedules(schedules, employeeList)
+
+                if (data) {
+                    setWorkSettings({
+                        work_start_time: data.work_start_time?.slice(0, 5) ?? '07:30',
+                        late_after_time: data.late_after_time?.slice(0, 5) ?? '07:45',
+                        morning_end_time: data.morning_end_time?.slice(0, 5) ?? '12:00',
+                        afternoon_start_time: data.afternoon_start_time?.slice(0, 5) ?? '13:30',
+                        afternoon_end_time: data.afternoon_end_time?.slice(0, 5) ?? '17:00',
+                    })
                 }
-
-                const employeeList =
-                    employeeData ?? []
-
-                setEmployees(employeeList)
 
                 const initialRows: AttendanceMap = {}
-
                 employeeList.forEach((employee) => {
-                    initialRows[employee.id] =
-                        emptyAttendance()
+                    initialRows[employee.id] = emptyAttendance()
                 })
-
-                if (employeeList.length === 0) {
-                    setRows(initialRows)
-                    return
-                }
-
-                const {data: attendanceData, error: attendanceError} =
-                    await supabase
-                        .from('attendance')
-                        .select(
-                            `
-                id,
-                employee_id,
-                check_in,
-                check_out,
-                morning_status,
-                afternoon_status,
-                is_late,
-                late_permission_status,
-                note
-              `,
-                        )
-                        .eq(
-                            'work_date',
-                            selectedDate,
-                        )
-
-                if (attendanceError) {
-                    throw attendanceError
-                }
 
                 attendanceData?.forEach(
                     (attendance) => {
@@ -289,19 +254,20 @@ export default function AttendanceToday() {
                     },
                 )
 
+                setEmployees(employeeList)
                 setRows(initialRows)
             } catch (err) {
+                if (cancelled) return
                 console.error(err)
 
-                setError(
-                    'Không thể tải danh sách chấm công.',
-                )
+                setError('Không thể tải danh sách chấm công.')
             } finally {
-                setLoading(false)
+                if (!cancelled) setLoading(false)
             }
         }
 
         void loadAttendance()
+        return () => { cancelled = true }
     }, [selectedDate])
 
     const updateRow = (
@@ -657,7 +623,7 @@ export default function AttendanceToday() {
             }
 
             const latePreview =
-                isLateArrival(row.check_in, employees.find((item) => item.id === employee.id)?.full_name, selectedDate, workSettings.late_after_time)
+                isLateArrival(row.check_in, employee.full_name, selectedDate, workSettings.late_after_time)
 
             if (latePreview) {
                 late += 1
@@ -684,7 +650,7 @@ export default function AttendanceToday() {
             late,
             leave,
         }
-    }, [employees, rows])
+    }, [employees, rows, selectedDate, workSettings.late_after_time])
 
     if (loading) {
         return (

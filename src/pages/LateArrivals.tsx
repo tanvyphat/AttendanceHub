@@ -35,6 +35,7 @@ interface LateRecord {
     check_out: string | null
     is_late: boolean
     morning_status: string
+    afternoon_status: string
     late_permission_status: LatePermissionStatus | null
     note: string | null
     employees: EmployeeRelation | null
@@ -127,6 +128,7 @@ export default function LateArrivals() {
                             check_out,
                             is_late,
                             morning_status,
+                            afternoon_status,
                             late_permission_status,
                             note,
                             employees (

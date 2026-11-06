@@ -12,6 +12,7 @@ import {
 import {Fragment, useEffect, useMemo, useState} from 'react'
 
 import {supabase} from '../lib/supabase'
+import {getLateReferenceAmount} from '../utils/attendancePolicy'
 import {
     getLateThreshold,
     getLatePermissionLabel,
@@ -33,6 +34,7 @@ interface LateRecord {
     check_in: string | null
     check_out: string | null
     is_late: boolean
+    morning_status: string
     late_permission_status: LatePermissionStatus | null
     note: string | null
     employees: EmployeeRelation | null
@@ -124,6 +126,7 @@ export default function LateArrivals() {
                             check_in,
                             check_out,
                             is_late,
+                            morning_status,
                             late_permission_status,
                             note,
                             employees (
@@ -176,7 +179,7 @@ export default function LateArrivals() {
                             record.work_date,
                             activeThreshold,
                         ),
-                    ),
+                    ).map((record) => ({...record, is_late: true})),
                 )
             } catch (err) {
                 console.error(err)
@@ -398,7 +401,7 @@ export default function LateArrivals() {
                         <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold text-slate-900">Chi tiết từng lần đi trễ</h2><p className="mt-1 text-xs text-slate-400">{filteredRecords.length} bản ghi · nhóm theo ngày</p></div>
                         {Array.from(new Set(dateGroups.map(([date]) => date))).map((date) => {
                             const dayRecords = dateGroups.find(([itemDate]) => itemDate === date)?.[1] ?? []
-                            return <div key={date} className="border-b border-slate-100 p-5 last:border-b-0"><div className="mb-3 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"><Clock3 size={17} /></div><div><p className="text-sm font-bold text-slate-900">{formatDate(date)}</p><p className="text-xs text-slate-400">{dayRecords.length} người đi trễ</p></div></div><div className="overflow-x-auto rounded-xl border border-slate-200"><div className="grid min-w-[850px] grid-cols-[1.2fr_120px_120px_180px_1fr] gap-4 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"><span>Nhân viên</span><span>Giờ vào</span><span>Số phút trễ</span><span>Phân loại đi trễ</span><span>Ghi chú</span></div>{dayRecords.map((record) => <div key={record.id} className="grid min-w-[850px] grid-cols-[1.2fr_120px_120px_180px_1fr] gap-4 border-t border-slate-100 px-4 py-3"><div><p className="text-sm font-semibold text-slate-900">{record.employees?.full_name ?? 'Không xác định'}</p><p className="mt-0.5 text-xs text-slate-400">{record.employees?.employee_code ?? '---'}</p></div><span className="self-center text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="self-center"><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span></span><span className="self-center">
+                            return <div key={date} className="border-b border-slate-100 p-5 last:border-b-0"><div className="mb-3 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"><Clock3 size={17} /></div><div><p className="text-sm font-bold text-slate-900">{formatDate(date)}</p><p className="text-xs text-slate-400">{dayRecords.length} người đi trễ</p></div></div><div className="overflow-x-auto rounded-xl border border-slate-200"><div className="grid min-w-[1050px] grid-cols-[1.2fr_120px_120px_180px_1fr_130px] gap-4 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"><span>Nhân viên</span><span>Giờ vào</span><span>Số phút trễ</span><span>Phân loại đi trễ</span><span>Ghi chú</span><span>Mức tham chiếu</span></div>{dayRecords.map((record) => <div key={record.id} className="grid min-w-[1050px] grid-cols-[1.2fr_120px_120px_180px_1fr_130px] gap-4 border-t border-slate-100 px-4 py-3"><div><p className="text-sm font-semibold text-slate-900">{record.employees?.full_name ?? 'Không xác định'}</p><p className="mt-0.5 text-xs text-slate-400">{record.employees?.employee_code ?? '---'}</p></div><span className="self-center text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="self-center"><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span></span><span className="self-center">
                                 <select
                                     value={record.late_permission_status ?? ''}
                                     disabled={savingRecordIds.has(record.id)}
@@ -410,7 +413,13 @@ export default function LateArrivals() {
                                     <option value="permitted">Trễ có phép</option>
                                     <option value="unpermitted">Trễ không phép</option>
                                 </select>
-                            </span><span className="self-center text-sm text-slate-500">{record.note || '—'}</span></div>)}</div></div>
+                            </span><span className="self-center text-sm text-slate-500">{record.note || '—'}</span><span className="self-center text-xs font-bold text-amber-700">{
+                                getLateReferenceAmount({
+                                    id: record.employee_id,
+                                    employee_code: record.employees?.employee_code ?? '',
+                                    full_name: record.employees?.full_name ?? '',
+                                }, record).toLocaleString('vi-VN')
+                            }đ <span className="block text-[10px] font-normal text-slate-400">Chỉ tham chiếu</span></span></div>)}</div></div>
                         })}
                     </section>
                 </>

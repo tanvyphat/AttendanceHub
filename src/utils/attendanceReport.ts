@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 
 import {getLateThreshold, getLatePermissionLabel, type LatePermissionStatus} from './lateArrival'
+import {buildAttendancePolicyReport} from './attendancePolicy'
 
 export type AttendanceStatus =
     | 'pending'
@@ -435,6 +436,8 @@ export async function exportAttendanceExcel(
     })
 
     const summaries = buildMonthlySummaries(employees, filteredAttendance)
+    const policyReport = buildAttendancePolicyReport(employees, filteredAttendance)
+    const policyByEmployee = new Map(policyReport.employeeSummaries.map((item) => [item.employeeId, item]))
     const firstExportDate = exportDates[0]
     const lastExportDate = exportDates[exportDates.length - 1]
 
@@ -449,11 +452,11 @@ export async function exportAttendanceExcel(
         views: [{state: 'frozen', ySplit: 4}],
     })
 
-    summarySheet.mergeCells('A1:H1')
+    summarySheet.mergeCells('A1:K1')
     summarySheet.getCell('A1').value = 'BÁO CÁO CHẤM CÔNG'
-    styleTitle(summarySheet, 'A1:H1')
+    styleTitle(summarySheet, 'A1:K1')
 
-    summarySheet.mergeCells('A2:H2')
+    summarySheet.mergeCells('A2:K2')
     summarySheet.getCell('A2').value =
         `${reportPeriodLabel} | ${formatDate(firstExportDate)} → ${formatDate(lastExportDate)}`
     summarySheet.getCell('A2').alignment = {horizontal: 'center'}
@@ -468,6 +471,9 @@ export async function exportAttendanceExcel(
         'Số lần đi trễ',
         'Trễ có phép',
         'Trễ không phép',
+        'Tiền theo nội quy (tham chiếu)',
+        'Công nghỉ không phép',
+        'Công phạt thêm (chỉ tham chiếu)',
     ]
 
     const summaryHeader = summarySheet.addRow(summaryHeaders)
@@ -483,6 +489,9 @@ export async function exportAttendanceExcel(
             summary.lateCount,
             summary.latePermittedCount,
             summary.lateUnpermittedCount,
+            policyByEmployee.get(summary.employeeId)?.referenceAmount ?? 0,
+            policyByEmployee.get(summary.employeeId)?.unpaidAbsenceDays ?? 0,
+            policyByEmployee.get(summary.employeeId)?.extraPolicyDays ?? 0,
         ])
     })
 
@@ -495,6 +504,9 @@ export async function exportAttendanceExcel(
         {width: 15},
         {width: 16},
         {width: 18},
+        {width: 30},
+        {width: 21},
+        {width: 33},
     ]
 
     const summaryEndRow = 4 + summaries.length
@@ -504,6 +516,9 @@ export async function exportAttendanceExcel(
         summarySheet.getCell(row, 3).numFmt = '0.0'
         summarySheet.getCell(row, 4).numFmt = '0.0'
         summarySheet.getCell(row, 5).numFmt = '0.0'
+        summarySheet.getCell(row, 9).numFmt = '#,##0" đ"'
+        summarySheet.getCell(row, 10).numFmt = '0.0'
+        summarySheet.getCell(row, 11).numFmt = '0.0'
 
         const rowRef = summarySheet.getRow(row)
         rowRef.height = 28
@@ -520,7 +535,7 @@ export async function exportAttendanceExcel(
 
         rowRef.getCell(1).alignment = {horizontal: 'center', vertical: 'middle'}
         rowRef.getCell(2).alignment = {vertical: 'middle'}
-        for (let column = 3; column <= 8; column += 1) {
+        for (let column = 3; column <= 11; column += 1) {
             rowRef.getCell(column).alignment = {
                 horizontal: 'center',
                 vertical: 'middle',
@@ -530,7 +545,7 @@ export async function exportAttendanceExcel(
 
     summarySheet.autoFilter = {
         from: 'A4',
-        to: `H${summaryEndRow}`,
+        to: `K${summaryEndRow}`,
     }
     summarySheet.views = [{state: 'frozen', ySplit: 4, showGridLines: false}]
 
@@ -1030,6 +1045,74 @@ export async function exportAttendanceExcel(
             detailHeaders.length,
         )
     }
+
+    // This sheet intentionally does not calculate or deduct wages:
+    // Article 127 of the Labour Code prohibits using monetary fines or
+    // wage deductions instead of lawful disciplinary procedures.
+    const policySheet = workbook.addWorksheet('Vi phạm nội quy', {
+        views: [{state: 'frozen', ySplit: 4, showGridLines: false}],
+    })
+    policySheet.mergeCells('A1:J1')
+    policySheet.getCell('A1').value = 'THỐNG KÊ VI PHẠM NỘI QUY — THAM CHIẾU'
+    styleTitle(policySheet, 'A1:J1')
+    policySheet.mergeCells('A2:J2')
+    policySheet.getCell('A2').value = reportPeriodLabel
+    policySheet.getCell('A2').alignment = {horizontal: 'center'}
+    policySheet.mergeCells('A3:J3')
+    policySheet.getCell('A3').value =
+        'KHÔNG TỰ ĐỘNG TRỪ LƯƠNG: các mức 30.000đ / 50.000đ và công phạt bổ sung chỉ để đối chiếu nội quy, không phải khoản khấu trừ hợp pháp.'
+    policySheet.getCell('A3').font = {bold: true, color: {argb: 'FFB45309'}, name: 'Times New Roman', size: 11}
+    policySheet.getCell('A3').alignment = {wrapText: true, vertical: 'middle'}
+    policySheet.getRow(3).height = 34
+
+    const policyHeaders = [
+        'Ngày', 'Mã NV', 'Họ và tên', 'Loại vi phạm',
+        'Giờ vào', 'Phân loại đi trễ', 'Tiền nội quy (tham chiếu)',
+        'Công không hưởng lương', 'Công bổ sung nội quy (tham chiếu)', 'Ghi chú',
+    ]
+    styleHeader(policySheet.addRow(policyHeaders))
+    for (const incident of policyReport.incidents) {
+        const row = policySheet.addRow([
+            formatDate(incident.workDate),
+            incident.employeeCode,
+            incident.fullName,
+            incident.type === 'late' ? 'Đi trễ' : 'Nghỉ không phép',
+            incident.checkIn?.slice(0, 5) ?? '',
+            incident.type === 'late' ? getLatePermissionLabel(incident.permission) : '',
+            incident.referenceAmount,
+            incident.unpaidAbsenceDays,
+            incident.extraPolicyDays,
+            incident.note ?? '',
+        ])
+        row.getCell(7).numFmt = '#,##0" đ"'
+        row.getCell(8).numFmt = '0.0'
+        row.getCell(9).numFmt = '0.0'
+        row.height = 28
+    }
+
+    policySheet.columns = [
+        {width: 15}, {width: 12}, {width: 29}, {width: 20},
+        {width: 12}, {width: 20}, {width: 28},
+        {width: 24}, {width: 35}, {width: 35},
+    ]
+    const policyEndRow = Math.max(4, policySheet.rowCount)
+    applyTableBorders(policySheet, 4, policyEndRow, policyHeaders.length)
+    polishWorksheet(policySheet, 4, policyEndRow, policyHeaders.length)
+    if (policyReport.incidents.length > 0) {
+        policySheet.autoFilter = {from: 'A4', to: `J${policyEndRow}`}
+    }
+
+    const policyTotalRow = policySheet.addRow([
+        '', '', 'TỔNG THEO KỲ', '', '', '',
+        policyReport.totals.referenceAmount,
+        policyReport.totals.unpaidAbsenceDays,
+        policyReport.totals.extraPolicyDays,
+        '',
+    ])
+    policyTotalRow.font = {name: 'Times New Roman', bold: true, size: 12}
+    policyTotalRow.getCell(7).numFmt = '#,##0" đ"'
+    policyTotalRow.getCell(8).numFmt = '0.0'
+    policyTotalRow.getCell(9).numFmt = '0.0'
 
     const buffer = await workbook.xlsx.writeBuffer()
     const styledBuffer = await applyWorkbookDefaultFont(buffer)

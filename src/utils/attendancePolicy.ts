@@ -53,21 +53,23 @@ const THUY_TIEN_HIGHER_TIER = '08:30'
 
 /**
  * Every late occurrence receives at most one reference amount:
- * - Other employees: 30k only if classified "Trễ không phép".
+ * - ALL employees must have "Trễ không phép" classification to have a reference amount.
+ * - Other employees: 30k per late occurrence.
  * - NV003: >08:30 is 50k, otherwise (if late) 30k.
- * The NV003 exception follows the requested rule independent of permission.
+ * Classification "Trễ có phép" or NULL always results in zero.
  */
 export function getLateReferenceAmount(
     employee: PolicyEmployee,
     record: PolicyAttendance,
 ): number {
     if (!record.is_late || !record.check_in || record.morning_status !== 'present') return 0
+    if (record.late_permission_status !== 'unpermitted') return 0
 
     if (employee.employee_code === SPECIAL_EMPLOYEE_CODE) {
         return record.check_in.slice(0, 5) > THUY_TIEN_HIGHER_TIER ? 50000 : 30000
     }
 
-    return record.late_permission_status === 'unpermitted' ? 30000 : 0
+    return 30000
 }
 
 /**
@@ -104,8 +106,7 @@ export function buildAttendancePolicyReport(
             const amount = getLateReferenceAmount(employee, record)
             if (amount === 30000) summary.late30kCount += 1
             if (amount === 50000) summary.late50kCount += 1
-            if (!amount && record.late_permission_status === null &&
-                employee.employee_code !== SPECIAL_EMPLOYEE_CODE) {
+            if (!amount && record.late_permission_status === null) {
                 summary.lateUnclassifiedCount += 1
             }
             summary.referenceAmount += amount

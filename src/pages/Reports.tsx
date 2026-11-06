@@ -343,8 +343,9 @@ export default function Reports() {
                             </table>
                         </div>
                         <p className="px-5 py-3 text-xs leading-5 text-slate-500">
-                            NV003 (Nguyễn Thị Thủy Tiên): vào từ 08:16–08:30 là 30k; sau 08:30 là 50k, chỉ lấy mức cao nhất mỗi lần.
-                            Các nhân viên còn lại chỉ tính 30k khi đã chọn "Trễ không phép".
+                            Tất cả nhân viên chỉ được tính mức tham chiếu khi đã chọn "Trễ không phép"; "Trễ có phép" hoặc "Chưa phân loại" là 0đ.
+                            Riêng NV003 (Nguyễn Thị Thủy Tiên): nếu trễ không phép, vào từ 08:16–08:30 là 30k; sau 08:30 là 50k, không cộng dồn hai mức.
+                            Các nhân viên còn lại trễ không phép tính 30k mỗi lần.
                             Nghỉ không phép trọn ngày: 1 công không hưởng lương và 1 công bổ sung chỉ để đối chiếu nội quy.
                         </p>
                     </section>

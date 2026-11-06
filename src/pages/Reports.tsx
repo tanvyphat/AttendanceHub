@@ -129,7 +129,7 @@ export default function Reports() {
                         .order('employee_code'),
                     supabase
                         .from('attendance')
-                        .select('id, employee_id, work_date, check_in, check_out, morning_status, afternoon_status, is_late, note')
+                        .select('id, employee_id, work_date, check_in, check_out, morning_status, afternoon_status, is_late, late_permission_status, note')
                         .gte('work_date', startDate)
                         .lte('work_date', endDate)
                         .order('work_date'),

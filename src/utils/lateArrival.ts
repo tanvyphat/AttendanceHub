@@ -94,3 +94,11 @@ export function isLateArrival(
         legacyThreshold,
     )
 }
+
+export type LatePermissionStatus = 'permitted' | 'unpermitted'
+
+export function getLatePermissionLabel(value: LatePermissionStatus | null | undefined) {
+    if (value === 'permitted') return 'Trễ có phép'
+    if (value === 'unpermitted') return 'Trễ không phép'
+    return 'Chưa phân loại'
+}

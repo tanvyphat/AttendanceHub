@@ -14,7 +14,9 @@ import {Fragment, useEffect, useMemo, useState} from 'react'
 import {supabase} from '../lib/supabase'
 import {
     getLateThreshold,
+    getLatePermissionLabel,
     isLateArrival,
+    type LatePermissionStatus,
     setEmployeeLateSchedules,
     type EmployeeLateSchedule,
 } from '../utils/lateArrival'
@@ -31,6 +33,7 @@ interface LateRecord {
     check_in: string | null
     check_out: string | null
     is_late: boolean
+    late_permission_status: LatePermissionStatus | null
     note: string | null
     employees: EmployeeRelation | null
 }
@@ -95,6 +98,8 @@ export default function LateArrivals() {
     const [loading, setLoading] = useState(true)
     const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
+    const [success, setSuccess] = useState<string | null>(null)
+    const [savingRecordIds, setSavingRecordIds] = useState<Set<string>>(new Set())
 
     useEffect(() => {
         const loadLateData = async () => {
@@ -119,6 +124,7 @@ export default function LateArrivals() {
                             check_in,
                             check_out,
                             is_late,
+                            late_permission_status,
                             note,
                             employees (
                                 employee_code,
@@ -263,6 +269,43 @@ export default function LateArrivals() {
         }
     }, [filteredRecords, lateAfterTime])
 
+    useEffect(() => {
+        if (!success) return
+        const timer = window.setTimeout(() => setSuccess(null), 4000)
+        return () => window.clearTimeout(timer)
+    }, [success])
+
+    const saveLatePermission = async (recordId: string, value: LatePermissionStatus | null) => {
+        setSavingRecordIds((current) => new Set(current).add(recordId))
+        setError(null)
+        setSuccess(null)
+
+        try {
+            const {data, error: saveError} = await supabase
+                .from('attendance')
+                .update({late_permission_status: value})
+                .eq('id', recordId)
+                .select('id, late_permission_status')
+                .single()
+
+            if (saveError) throw saveError
+            setRecords((current) => current.map((record) => record.id === data.id
+                ? {...record, late_permission_status: data.late_permission_status as LatePermissionStatus | null}
+                : record,
+            ))
+            setSuccess('Đã lưu phân loại đi trễ.')
+        } catch (err) {
+            console.error(err)
+            setError('Không thể lưu phân loại đi trễ. Vui lòng thử lại.')
+        } finally {
+            setSavingRecordIds((current) => {
+                const next = new Set(current)
+                next.delete(recordId)
+                return next
+            })
+        }
+    }
+
     const toggleEmployee = (employeeId: string) => {
         setExpandedEmployees((current) => {
             const next = new Set(current)
@@ -305,6 +348,7 @@ export default function LateArrivals() {
             </section>
 
             {error && <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
+            {success && <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{success}</div>}
 
             {loading ? (
                 <div className="flex min-h-80 items-center justify-center">
@@ -342,7 +386,7 @@ export default function LateArrivals() {
                                                 <td className="px-5 py-4 text-center font-bold text-red-600">{item.totalMinutes} phút</td>
                                                 <td className="px-5 py-4 text-center font-semibold text-slate-700">{item.maxMinutes} phút</td>
                                             </tr>
-                                            {expandedEmployees.has(item.employeeId) && <tr className="border-b border-slate-100 bg-slate-50/60"><td colSpan={5} className="px-5 py-4"><div className="rounded-xl border border-slate-200 bg-white"><div className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-400"><span>Ngày</span><span>Giờ vào trễ</span><span>Số phút trễ</span></div>{item.records.map((record) => <div key={record.id} className="grid grid-cols-[130px_1fr_120px] gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0"><span className="text-sm font-semibold text-slate-700">{formatDate(record.work_date)}</span><span className="text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="text-sm font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span></div>)}</div></td></tr>}
+                                            {expandedEmployees.has(item.employeeId) && <tr className="border-b border-slate-100 bg-slate-50/60"><td colSpan={5} className="px-5 py-4"><div className="rounded-xl border border-slate-200 bg-white"><div className="grid grid-cols-[130px_1fr_120px_170px] gap-4 border-b border-slate-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-400"><span>Ngày</span><span>Giờ vào trễ</span><span>Số phút trễ</span><span>Phân loại</span></div>{item.records.map((record) => <div key={record.id} className="grid grid-cols-[130px_1fr_120px_170px] gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0"><span className="text-sm font-semibold text-slate-700">{formatDate(record.work_date)}</span><span className="text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="text-sm font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span><span className="text-sm font-medium text-amber-700">{getLatePermissionLabel(record.late_permission_status)}</span></div>)}</div></td></tr>}
                                         </Fragment>)}
                                     </tbody>
                                 </table>
@@ -354,7 +398,19 @@ export default function LateArrivals() {
                         <div className="border-b border-slate-100 px-5 py-4"><h2 className="font-bold text-slate-900">Chi tiết từng lần đi trễ</h2><p className="mt-1 text-xs text-slate-400">{filteredRecords.length} bản ghi · nhóm theo ngày</p></div>
                         {Array.from(new Set(dateGroups.map(([date]) => date))).map((date) => {
                             const dayRecords = dateGroups.find(([itemDate]) => itemDate === date)?.[1] ?? []
-                            return <div key={date} className="border-b border-slate-100 p-5 last:border-b-0"><div className="mb-3 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"><Clock3 size={17} /></div><div><p className="text-sm font-bold text-slate-900">{formatDate(date)}</p><p className="text-xs text-slate-400">{dayRecords.length} người đi trễ</p></div></div><div className="overflow-hidden rounded-xl border border-slate-200"><div className="grid grid-cols-[1.3fr_140px_140px_1fr] gap-4 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"><span>Nhân viên</span><span>Giờ vào</span><span>Số phút trễ</span><span>Ghi chú</span></div>{dayRecords.map((record) => <div key={record.id} className="grid grid-cols-[1.3fr_140px_140px_1fr] gap-4 border-t border-slate-100 px-4 py-3"><div><p className="text-sm font-semibold text-slate-900">{record.employees?.full_name ?? 'Không xác định'}</p><p className="mt-0.5 text-xs text-slate-400">{record.employees?.employee_code ?? '---'}</p></div><span className="self-center text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="self-center"><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span></span><span className="self-center text-sm text-slate-500">{record.note || '—'}</span></div>)}</div></div>
+                            return <div key={date} className="border-b border-slate-100 p-5 last:border-b-0"><div className="mb-3 flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"><Clock3 size={17} /></div><div><p className="text-sm font-bold text-slate-900">{formatDate(date)}</p><p className="text-xs text-slate-400">{dayRecords.length} người đi trễ</p></div></div><div className="overflow-x-auto rounded-xl border border-slate-200"><div className="grid min-w-[850px] grid-cols-[1.2fr_120px_120px_180px_1fr] gap-4 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500"><span>Nhân viên</span><span>Giờ vào</span><span>Số phút trễ</span><span>Phân loại đi trễ</span><span>Ghi chú</span></div>{dayRecords.map((record) => <div key={record.id} className="grid min-w-[850px] grid-cols-[1.2fr_120px_120px_180px_1fr] gap-4 border-t border-slate-100 px-4 py-3"><div><p className="text-sm font-semibold text-slate-900">{record.employees?.full_name ?? 'Không xác định'}</p><p className="mt-0.5 text-xs text-slate-400">{record.employees?.employee_code ?? '---'}</p></div><span className="self-center text-sm font-bold text-red-600">{record.check_in?.slice(0, 5) ?? '—'}</span><span className="self-center"><span className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">+{getRecordLateMinutes(record, lateAfterTime)} phút</span></span><span className="self-center">
+                                <select
+                                    value={record.late_permission_status ?? ''}
+                                    disabled={savingRecordIds.has(record.id)}
+                                    aria-label={`Phân loại đi trễ của ${record.employees?.full_name ?? 'nhân viên'} ngày ${formatDate(record.work_date)}`}
+                                    onChange={(event) => void saveLatePermission(record.id, (event.target.value || null) as LatePermissionStatus | null)}
+                                    className="h-9 w-full cursor-pointer rounded-lg border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-900 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                    <option value="">Chưa phân loại</option>
+                                    <option value="permitted">Trễ có phép</option>
+                                    <option value="unpermitted">Trễ không phép</option>
+                                </select>
+                            </span><span className="self-center text-sm text-slate-500">{record.note || '—'}</span></div>)}</div></div>
                         })}
                     </section>
                 </>

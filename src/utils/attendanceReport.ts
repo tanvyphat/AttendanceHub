@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 
-import {getLateThreshold} from './lateArrival'
+import {getLateThreshold, getLatePermissionLabel, type LatePermissionStatus} from './lateArrival'
 
 export type AttendanceStatus =
     | 'pending'
@@ -36,6 +36,7 @@ export interface ReportAttendance {
     afternoon_status: AttendanceStatus
 
     is_late: boolean
+    late_permission_status: LatePermissionStatus | null
     note: string | null
 }
 
@@ -54,6 +55,8 @@ export interface EmployeeMonthlySummary {
     unapprovedLeaveDays: number
 
     lateCount: number
+    latePermittedCount: number
+    lateUnpermittedCount: number
 }
 
 export function getMonthRange(
@@ -89,6 +92,8 @@ export function buildMonthlySummaries(
         let approvedLeaveSessions = 0
         let unapprovedLeaveSessions = 0
         let lateCount = 0
+        let latePermittedCount = 0
+        let lateUnpermittedCount = 0
 
         for (const record of employeeAttendance) {
             if (record.morning_status === 'present') presentSessions += 1
@@ -97,7 +102,11 @@ export function buildMonthlySummaries(
             if (record.afternoon_status === 'approved_leave') approvedLeaveSessions += 1
             if (record.morning_status === 'unapproved_leave') unapprovedLeaveSessions += 1
             if (record.afternoon_status === 'unapproved_leave') unapprovedLeaveSessions += 1
-            if (record.is_late) lateCount += 1
+            if (record.is_late) {
+                lateCount += 1
+                if (record.late_permission_status === 'permitted') latePermittedCount += 1
+                if (record.late_permission_status === 'unpermitted') lateUnpermittedCount += 1
+            }
         }
 
         return {
@@ -111,6 +120,8 @@ export function buildMonthlySummaries(
             unapprovedLeaveSessions,
             unapprovedLeaveDays: unapprovedLeaveSessions / 2,
             lateCount,
+            latePermittedCount,
+            lateUnpermittedCount,
         }
     })
 }
@@ -193,6 +204,7 @@ function getAttendanceDetails(
                 ? `Trễ: ${lateMinutes} phút`
                 : 'Đi trễ',
         )
+        lines.push(`Phân loại: ${getLatePermissionLabel(record.late_permission_status)}`)
     }
 
     lines.push(`Sáng: ${getStatusLabel(record.morning_status)}`)
@@ -437,11 +449,11 @@ export async function exportAttendanceExcel(
         views: [{state: 'frozen', ySplit: 4}],
     })
 
-    summarySheet.mergeCells('A1:F1')
+    summarySheet.mergeCells('A1:H1')
     summarySheet.getCell('A1').value = 'BÁO CÁO CHẤM CÔNG'
-    styleTitle(summarySheet, 'A1:F1')
+    styleTitle(summarySheet, 'A1:H1')
 
-    summarySheet.mergeCells('A2:F2')
+    summarySheet.mergeCells('A2:H2')
     summarySheet.getCell('A2').value =
         `${reportPeriodLabel} | ${formatDate(firstExportDate)} → ${formatDate(lastExportDate)}`
     summarySheet.getCell('A2').alignment = {horizontal: 'center'}
@@ -454,6 +466,8 @@ export async function exportAttendanceExcel(
         'Ngày nghỉ có phép',
         'Ngày nghỉ không phép',
         'Số lần đi trễ',
+        'Trễ có phép',
+        'Trễ không phép',
     ]
 
     const summaryHeader = summarySheet.addRow(summaryHeaders)
@@ -467,6 +481,8 @@ export async function exportAttendanceExcel(
             summary.approvedLeaveDays,
             summary.unapprovedLeaveDays,
             summary.lateCount,
+            summary.latePermittedCount,
+            summary.lateUnpermittedCount,
         ])
     })
 
@@ -477,6 +493,8 @@ export async function exportAttendanceExcel(
         {width: 20},
         {width: 22},
         {width: 15},
+        {width: 16},
+        {width: 18},
     ]
 
     const summaryEndRow = 4 + summaries.length
@@ -502,7 +520,7 @@ export async function exportAttendanceExcel(
 
         rowRef.getCell(1).alignment = {horizontal: 'center', vertical: 'middle'}
         rowRef.getCell(2).alignment = {vertical: 'middle'}
-        for (let column = 3; column <= 6; column += 1) {
+        for (let column = 3; column <= 8; column += 1) {
             rowRef.getCell(column).alignment = {
                 horizontal: 'center',
                 vertical: 'middle',
@@ -512,7 +530,7 @@ export async function exportAttendanceExcel(
 
     summarySheet.autoFilter = {
         from: 'A4',
-        to: `F${summaryEndRow}`,
+        to: `H${summaryEndRow}`,
     }
     summarySheet.views = [{state: 'frozen', ySplit: 4, showGridLines: false}]
 
@@ -529,6 +547,8 @@ export async function exportAttendanceExcel(
         }),
         'Ngày công',
         'Đi trễ',
+        'Trễ có phép',
+        'Trễ không phép',
         'Nghỉ phép',
         'Không phép',
     ]
@@ -588,11 +608,13 @@ export async function exportAttendanceExcel(
             ...dayValues,
             summary?.workDays ?? 0,
             summary?.lateCount ?? 0,
+            summary?.latePermittedCount ?? 0,
+            summary?.lateUnpermittedCount ?? 0,
             summary?.approvedLeaveDays ?? 0,
             summary?.unapprovedLeaveDays ?? 0,
         ])
 
-        row.height = 92
+        row.height = 110
 
         if (index % 2 === 1) {
             row.eachCell((cell) => {
@@ -717,8 +739,8 @@ export async function exportAttendanceExcel(
         }
 
         attendanceSheet.getCell(row, lastDayColumn + 1).numFmt = '0.0'
-        attendanceSheet.getCell(row, lastDayColumn + 3).numFmt = '0.0'
-        attendanceSheet.getCell(row, lastDayColumn + 4).numFmt = '0.0'
+        attendanceSheet.getCell(row, lastDayColumn + 5).numFmt = '0.0'
+        attendanceSheet.getCell(row, lastDayColumn + 6).numFmt = '0.0'
     }
 
     for (let row = 5; row <= matrixEndRow; row += 1) {
@@ -754,10 +776,10 @@ export async function exportAttendanceExcel(
         views: [{state: 'frozen', ySplit: 4}],
     })
 
-    detailSheet.mergeCells('A1:H1')
+    detailSheet.mergeCells('A1:I1')
     detailSheet.getCell('A1').value =
         `CHI TIẾT ĐI TRỄ & NGHỈ — ${reportPeriodLabel.toUpperCase()}`
-    styleTitle(detailSheet, 'A1:H1')
+    styleTitle(detailSheet, 'A1:I1')
     detailSheet.addRow([])
     detailSheet.addRow([])
 
@@ -769,6 +791,7 @@ export async function exportAttendanceExcel(
         'Giờ vào',
         'Giờ về',
         'Trễ (phút)',
+        'Phân loại đi trễ',
         'Ghi chú',
     ]
 
@@ -844,6 +867,7 @@ export async function exportAttendanceExcel(
             record.check_in ? record.check_in.slice(0, 5) : '',
             record.check_out ? record.check_out.slice(0, 5) : '',
             lateMinutes && lateMinutes > 0 ? lateMinutes : '',
+            type === 'late' ? getLatePermissionLabel(record.late_permission_status) : '',
             record.note?.trim() ?? '',
         ])
 
@@ -939,6 +963,7 @@ export async function exportAttendanceExcel(
         {width: 12},
         {width: 12},
         {width: 14},
+        {width: 22},
         {width: 35},
     ]
 

@@ -17,7 +17,7 @@ import {
 import TimeInput from '../components/ui/TimeInput'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
-import {isLateArrival} from '../utils/lateArrival'
+import {isLateArrival, type LatePermissionStatus} from '../utils/lateArrival'
 import {isValid24HourTime} from '../utils/time24'
 
 type AttendanceStatus =
@@ -42,6 +42,7 @@ interface AttendanceRecord {
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
     is_late: boolean
+    late_permission_status: LatePermissionStatus | null
     note: string | null
     employees: {
         employee_code: string
@@ -57,6 +58,7 @@ interface EditRow {
     morningStatus: AttendanceStatus
     afternoonStatus: AttendanceStatus
     isLate: boolean
+    latePermissionStatus: LatePermissionStatus | null
     note: string
 }
 
@@ -373,6 +375,7 @@ export default function AttendanceHistory() {
                                     morning_status,
                                     afternoon_status,
                                     is_late,
+                                    late_permission_status,
                                     note,
                                     employees (
                                         employee_code,
@@ -652,6 +655,7 @@ export default function AttendanceHistory() {
                             morning_status,
                             afternoon_status,
                             is_late,
+                            late_permission_status,
                             note
                         `,
                     )
@@ -729,6 +733,8 @@ export default function AttendanceHistory() {
                                     workDate,
                                     lateAfterTime,
                                 ),
+
+                                latePermissionStatus: attendance?.late_permission_status ?? null,
 
                                 note:
                                     attendance
@@ -861,6 +867,10 @@ export default function AttendanceHistory() {
 
                             afternoon_status:
                                 row.afternoonStatus,
+
+                            late_permission_status: row.morningStatus === 'present' && isLateArrival(
+                                row.checkIn, row.employee.full_name, editDate, lateAfterTime,
+                            ) ? row.latePermissionStatus : null,
 
                             note:
                                 row.note
@@ -1256,7 +1266,7 @@ export default function AttendanceHistory() {
                             </div>
                         ) : (
                             <div className="overflow-auto">
-                                <table className="w-full min-w-[1280px]">
+                                <table className="w-full min-w-[1480px]">
                                     <thead className="sticky top-0 z-10 bg-slate-50">
                                         <tr className="border-b border-slate-200">
                                             <th className="w-[250px] min-w-[250px] px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -1284,6 +1294,10 @@ export default function AttendanceHistory() {
                                             </th>
 
                                             <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                                                Phân loại đi trễ
+                                            </th>
+
+                                            <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Ghi chú
                                             </th>
                                         </tr>
@@ -1292,11 +1306,9 @@ export default function AttendanceHistory() {
                                     <tbody>
                                         {editRows.map(
                                             (row) => {
-                                                const isLate =
-                                                    row.checkIn !==
-                                                        '' &&
-                                                    row.checkIn >
-                                                        lateAfterTime
+                                                const isLate = row.morningStatus === 'present' && isLateArrival(
+                                                    row.checkIn, row.employee.full_name, editDate ?? '', lateAfterTime,
+                                                )
 
                                                 return (
                                                     <tr
@@ -1446,6 +1458,23 @@ export default function AttendanceHistory() {
                                                                     Chưa xác định
                                                                 </span>
                                                             )}
+                                                        </td>
+
+                                                        <td className="px-5 py-4">
+                                                            {isLate ? (
+                                                                <select
+                                                                    aria-label={`Phân loại đi trễ của ${row.employee.full_name}`}
+                                                                    value={row.latePermissionStatus ?? ''}
+                                                                    onChange={(event) => updateEditRow(row.employee.id, {
+                                                                        latePermissionStatus: (event.target.value || null) as LatePermissionStatus | null,
+                                                                    })}
+                                                                    className="h-10 w-44 cursor-pointer rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm outline-none focus:border-amber-400"
+                                                                >
+                                                                    <option value="">Chưa phân loại</option>
+                                                                    <option value="permitted">Trễ có phép</option>
+                                                                    <option value="unpermitted">Trễ không phép</option>
+                                                                </select>
+                                                            ) : <span className="text-sm text-slate-400">—</span>}
                                                         </td>
 
                                                         <td className="px-5 py-4">

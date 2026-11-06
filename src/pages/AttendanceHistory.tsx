@@ -17,7 +17,12 @@ import {
 import TimeInput from '../components/ui/TimeInput'
 import Toast from '../components/ui/Toast'
 import {supabase} from '../lib/supabase'
-import {isLateArrival, type LatePermissionStatus} from '../utils/lateArrival'
+import {
+    isLateArrival,
+    setEmployeeLateSchedules,
+    type EmployeeLateSchedule,
+    type LatePermissionStatus,
+} from '../utils/lateArrival'
 import {isValid24HourTime} from '../utils/time24'
 
 type AttendanceStatus =
@@ -359,6 +364,7 @@ export default function AttendanceHistory() {
                     employeeResult,
                     settingsResult,
                     overtimeResult,
+                    schedulesResult,
                 ] =
                     await Promise.all([
                         supabase
@@ -429,6 +435,13 @@ export default function AttendanceHistory() {
                             .gte('overtime_date', startDate)
                             .lte('overtime_date', endDate)
                             .order('overtime_date'),
+
+                        supabase
+                            .from('employee_work_schedules')
+                            .select('employee_id, effective_from, effective_to, late_after_time')
+                            .lte('effective_from', endDate)
+                            .or(`effective_to.is.null,effective_to.gte.${startDate}`)
+                            .order('effective_from', {ascending: false}),
                     ])
 
                 if (
@@ -451,14 +464,24 @@ export default function AttendanceHistory() {
                     throw overtimeResult.error
                 }
 
+                if (schedulesResult.error) {
+                    throw schedulesResult.error
+                }
+
+                // Never use the default company cutoff when editing an
+                // employee with a date-specific work schedule after refresh.
+                const loadedEmployees = (employeeResult.data ?? []) as Employee[]
+                setEmployeeLateSchedules(
+                    (schedulesResult.data ?? []) as EmployeeLateSchedule[],
+                    loadedEmployees,
+                )
+
                 setRecords(
                     (historyResult.data ??
                         []) as unknown as AttendanceRecord[],
                 )
 
-                setEmployees(
-                    (employeeResult.data ?? []) as Employee[],
-                )
+                setEmployees(loadedEmployees)
 
                 setOvertimeRecords(
                     (overtimeResult.data ?? []) as OvertimeRecord[],

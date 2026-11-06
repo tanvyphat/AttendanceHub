@@ -17,7 +17,7 @@ import {useSearchParams} from 'react-router-dom'
 import TimeInput from '../components/ui/TimeInput'
 import {supabase} from '../lib/supabase'
 import {isValid24HourTime} from '../utils/time24'
-import {isLateArrival} from '../utils/lateArrival'
+import {isLateArrival, type LatePermissionStatus} from '../utils/lateArrival'
 
 type AttendanceStatus =
     | 'pending'
@@ -38,6 +38,7 @@ interface AttendanceRow {
     morning_status: AttendanceStatus
     afternoon_status: AttendanceStatus
     is_late: boolean
+    late_permission_status: LatePermissionStatus | null
     note: string
 }
 
@@ -52,6 +53,7 @@ const emptyAttendance = (): AttendanceRow => ({
     morning_status: 'pending',
     afternoon_status: 'pending',
     is_late: false,
+    late_permission_status: null,
     note: '',
 })
 
@@ -245,6 +247,7 @@ export default function AttendanceToday() {
                 morning_status,
                 afternoon_status,
                 is_late,
+                late_permission_status,
                 note
               `,
                         )
@@ -280,6 +283,7 @@ export default function AttendanceToday() {
                             is_late:
                                 attendance.is_late ??
                                 false,
+                            late_permission_status: attendance.late_permission_status ?? null,
                             note: attendance.note ?? '',
                         }
                     },
@@ -336,6 +340,7 @@ export default function AttendanceToday() {
             morning_status: status,
             afternoon_status: status,
             is_late: false,
+            late_permission_status: null,
         })
     }
 
@@ -415,6 +420,8 @@ export default function AttendanceToday() {
                         check_in: checkIn,
                         check_out: checkOut,
                         is_late: isLateArrival(checkIn, employee.full_name, selectedDate, workSettings.late_after_time),
+                        late_permission_status: isLateArrival(checkIn, employee.full_name, selectedDate, workSettings.late_after_time)
+                            ? row.late_permission_status : null,
                         morning_status:
                         row.morning_status,
                         afternoon_status:
@@ -434,6 +441,7 @@ export default function AttendanceToday() {
             morning_status,
             afternoon_status,
             is_late,
+            late_permission_status,
             note
           `,
                 )
@@ -456,6 +464,7 @@ export default function AttendanceToday() {
                 afternoon_status:
                 data.afternoon_status,
                 is_late: data.is_late,
+                late_permission_status: data.late_permission_status ?? null,
                 note: data.note ?? '',
             })
 
@@ -526,6 +535,12 @@ export default function AttendanceToday() {
                             selectedDate,
                             workSettings.late_after_time,
                         ),
+                        late_permission_status: isLateArrival(
+                            row.morning_status === 'present' ? row.check_in : null,
+                            employee.full_name,
+                            selectedDate,
+                            workSettings.late_after_time,
+                        ) ? row.late_permission_status : null,
 
                         morning_status:
                         row.morning_status,
@@ -557,6 +572,7 @@ export default function AttendanceToday() {
             morning_status,
             afternoon_status,
             is_late,
+            late_permission_status,
             note
           `,
                 )
@@ -594,6 +610,8 @@ export default function AttendanceToday() {
 
                         is_late:
                         attendance.is_late,
+
+                        late_permission_status: attendance.late_permission_status ?? null,
 
                         note:
                             attendance.note ?? '',
@@ -1114,6 +1132,26 @@ export default function AttendanceToday() {
                                         </select>
                                     </div>
                                 </div>
+
+                                {isLate && (
+                                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                                        <label htmlFor={`late-permission-${employee.id}`} className="mb-2 block text-xs font-bold uppercase tracking-wide text-amber-800">
+                                            Phân loại đi trễ
+                                        </label>
+                                        <select
+                                            id={`late-permission-${employee.id}`}
+                                            value={row.late_permission_status ?? ''}
+                                            onChange={(event) => updateRow(employee.id, {
+                                                late_permission_status: (event.target.value || null) as LatePermissionStatus | null,
+                                            })}
+                                            className="h-11 w-full max-w-xs cursor-pointer rounded-xl border border-amber-200 bg-white px-3.5 text-sm font-medium outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
+                                        >
+                                            <option value="">Chưa phân loại</option>
+                                            <option value="permitted">Trễ có phép</option>
+                                            <option value="unpermitted">Trễ không phép</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div className="mt-4 grid gap-4 lg:grid-cols-[auto_1fr]">
                                     <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">

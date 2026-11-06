@@ -11,6 +11,7 @@ import {
 import {useEffect, useMemo, useState} from 'react'
 
 import {supabase} from '../lib/supabase'
+import {buildAttendancePolicyReport} from '../utils/attendancePolicy'
 import {
     isLateArrival,
     setEmployeeLateSchedules,
@@ -194,6 +195,11 @@ export default function Reports() {
         [employees, filteredAttendance],
     )
 
+    const policyReport = useMemo(
+        () => buildAttendancePolicyReport(employees, filteredAttendance),
+        [employees, filteredAttendance],
+    )
+
     const overall = useMemo(() => summaries.reduce(
         (total, item) => ({
             presentSessions: total.presentSessions + item.presentSessions,
@@ -292,6 +298,55 @@ export default function Reports() {
                         <div className="overflow-x-auto"><table className="w-full min-w-[1000px]"><thead className="bg-slate-50"><tr className="border-b border-slate-200"><th className="px-5 py-4 text-left text-xs font-bold uppercase text-slate-500">Nhân viên</th><th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">Buổi có mặt</th><th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">Ngày công</th><th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">Nghỉ phép</th><th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">Không phép</th><th className="px-5 py-4 text-center text-xs font-bold uppercase text-slate-500">Đi trễ</th></tr></thead><tbody>
                             {summaries.map((item) => <tr key={item.employeeId} className="border-b border-slate-100 hover:bg-slate-50/70"><td className="px-5 py-4"><p className="font-semibold text-slate-900">{item.fullName}</p><p className="mt-1 text-xs text-slate-400">{item.employeeCode}</p></td><td className="px-5 py-4 text-center font-semibold text-slate-700">{item.presentSessions}</td><td className="px-5 py-4 text-center"><span className="rounded-lg bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">{item.workDays}</span></td><td className="px-5 py-4 text-center text-blue-700">{item.approvedLeaveSessions}</td><td className="px-5 py-4 text-center font-semibold text-red-600">{item.unapprovedLeaveSessions}</td><td className="px-5 py-4 text-center">{item.lateCount > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700"><Clock3 size={13} />{item.lateCount}</span> : <span className="text-slate-300">0</span>}</td></tr>)}
                         </tbody></table></div>
+                    </section>
+
+                    <section className="mt-6 overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+                        <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
+                            <h2 className="text-base font-bold text-amber-950">Thống kê vi phạm nội quy (tham chiếu)</h2>
+                            <p className="mt-1 text-sm text-amber-800">
+                                Mức 30.000đ / 50.000đ là số liệu đối chiếu theo nội quy, KHÔNG phải khoản được tự động trừ lương.
+                                Công bổ sung theo nội quy cũng không được tự động khấu trừ.
+                            </p>
+                        </div>
+                        <div className="grid gap-3 border-b border-slate-100 px-5 py-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <div><p className="text-xs font-semibold text-slate-500">Lần trễ mức 30.000đ</p><p className="mt-1 text-xl font-bold text-slate-950">{policyReport.totals.late30kCount}</p></div>
+                            <div><p className="text-xs font-semibold text-slate-500">Lần trễ mức 50.000đ</p><p className="mt-1 text-xl font-bold text-slate-950">{policyReport.totals.late50kCount}</p></div>
+                            <div><p className="text-xs font-semibold text-slate-500">Tiền theo nội quy (chỉ tham chiếu)</p><p className="mt-1 text-xl font-bold text-amber-700">{policyReport.totals.referenceAmount.toLocaleString('vi-VN')}đ</p></div>
+                            <div><p className="text-xs font-semibold text-slate-500">Nghỉ không phép / công bổ sung nội quy</p><p className="mt-1 text-xl font-bold text-slate-950">{policyReport.totals.unpaidAbsenceDays} / {policyReport.totals.extraPolicyDays}</p></div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[1100px]">
+                                <thead className="bg-slate-50">
+                                    <tr className="border-b border-slate-200 text-xs font-bold uppercase text-slate-500">
+                                        <th className="px-5 py-3 text-left">Nhân viên</th>
+                                        <th className="px-4 py-3 text-center">Trễ 30k</th>
+                                        <th className="px-4 py-3 text-center">Trễ 50k</th>
+                                        <th className="px-4 py-3 text-center">Trễ chưa phân loại</th>
+                                        <th className="px-4 py-3 text-right">Tiền tham chiếu</th>
+                                        <th className="px-4 py-3 text-center">Nghỉ không phép (công)</th>
+                                        <th className="px-4 py-3 text-center">Công phạt bổ sung (tham chiếu)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {policyReport.employeeSummaries.map((item) => (
+                                        <tr key={item.employeeId} className="border-b border-slate-100 text-sm last:border-b-0">
+                                            <td className="px-5 py-3"><span className="font-semibold text-slate-900">{item.fullName}</span><span className="ml-2 text-xs text-slate-400">{item.employeeCode}</span></td>
+                                            <td className="px-4 py-3 text-center">{item.late30kCount}</td>
+                                            <td className="px-4 py-3 text-center">{item.late50kCount}</td>
+                                            <td className="px-4 py-3 text-center">{item.lateUnclassifiedCount}</td>
+                                            <td className="px-4 py-3 text-right font-semibold text-amber-700">{item.referenceAmount.toLocaleString('vi-VN')}đ</td>
+                                            <td className="px-4 py-3 text-center">{item.unpaidAbsenceDays}</td>
+                                            <td className="px-4 py-3 text-center">{item.extraPolicyDays}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p className="px-5 py-3 text-xs leading-5 text-slate-500">
+                            NV003 (Nguyễn Thị Thủy Tiên): vào từ 08:16–08:30 là 30k; sau 08:30 là 50k, chỉ lấy mức cao nhất mỗi lần.
+                            Các nhân viên còn lại chỉ tính 30k khi đã chọn "Trễ không phép".
+                            Nghỉ không phép trọn ngày: 1 công không hưởng lương và 1 công bổ sung chỉ để đối chiếu nội quy.
+                        </p>
                     </section>
                 </>
             )}
